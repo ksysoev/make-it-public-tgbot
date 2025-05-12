@@ -28,13 +28,13 @@ type Config struct {
 	TelegramToken string `mapstructure:"telegram_token"`
 }
 
-type ServiceImpl struct {
+type Service struct {
 	token string
 	Bot   BotAPI
 }
 
-// NewService creates a new bot service with the given configuration and AI provider
-func NewService(cfg *Config) (*ServiceImpl, error) {
+// New initializes a new Service with the given configuration and returns an error if the configuration is invalid.
+func New(cfg *Config) (*Service, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config cannot be nil")
 	}
@@ -48,13 +48,13 @@ func NewService(cfg *Config) (*ServiceImpl, error) {
 		return nil, fmt.Errorf("failed to create Telegram bot: %w", err)
 	}
 
-	return &ServiceImpl{
+	return &Service{
 		token: cfg.TelegramToken,
 		Bot:   bot,
 	}, nil
 }
 
-func (s *ServiceImpl) processUpdate(ctx context.Context, update *tgbotapi.Update) {
+func (s *Service) processUpdate(ctx context.Context, update *tgbotapi.Update) {
 	if update.Message == nil {
 		return
 	}
@@ -101,7 +101,7 @@ func (s *ServiceImpl) processUpdate(ctx context.Context, update *tgbotapi.Update
 	}
 }
 
-func (s *ServiceImpl) Run(ctx context.Context) error {
+func (s *Service) Run(ctx context.Context) error {
 	slog.InfoContext(ctx, "Starting Telegram bot")
 
 	updateConfig := tgbotapi.NewUpdate(0)
