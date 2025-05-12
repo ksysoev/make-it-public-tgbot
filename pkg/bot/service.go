@@ -59,7 +59,7 @@ func (s *Service) processUpdate(ctx context.Context, update *tgbotapi.Update) {
 		return
 	}
 
-	// nolint:staticcheck // don't want to have dependecy on cmd package here for now
+	// nolint:staticcheck // don't want to have dependency on cmd package here for now
 	ctx = context.WithValue(ctx, "chat_id", fmt.Sprintf("%d", update.Message.Chat.ID))
 
 	msg := update.Message
