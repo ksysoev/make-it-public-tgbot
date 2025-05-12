@@ -7,19 +7,20 @@ import (
 	"github.com/ksysoev/make-it-public-tgbot/pkg/bot"
 )
 
-func runBot(ctx context.Context, args *args) error {
-	if err := initLogger(args); err != nil {
+func runBot(ctx context.Context, arg *args) error {
+	if err := initLogger(arg); err != nil {
 		return fmt.Errorf("failed to init logger: %w", err)
 	}
 
-	cfg, err := loadConfig(args)
+	cfg, err := loadConfig(arg)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	bot := bot.New(&cfg.Bot)
+	b, err := bot.New(&cfg.Bot)
+	if err != nil {
+		return fmt.Errorf("failed to create bot: %w", err)
+	}
 
-	slog.InfoContext(ctx, "revclient started", "server", args.Server)
-
-	return revcli.Run(ctx)
+	return b.Run(ctx)
 }

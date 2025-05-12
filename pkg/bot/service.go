@@ -16,8 +16,8 @@ const (
 	requestTimeout = 3 * time.Second
 )
 
-// BotAPI interface represents the Telegram bot API capabilities we use
-type BotAPI interface {
+// tgClient interface represents the Telegram bot API capabilities we use
+type tgClient interface {
 	Send(c tgbotapi.Chattable) (tgbotapi.Message, error)
 	StopReceivingUpdates()
 	GetUpdatesChan(config tgbotapi.UpdateConfig) tgbotapi.UpdatesChannel
@@ -25,12 +25,12 @@ type BotAPI interface {
 
 // Config holds the configuration for the Telegram bot
 type Config struct {
-	TelegramToken string `mapstructure:"telegram_token"`
+	TelegramToken string `mapstructure:"token"`
 }
 
 type Service struct {
 	token string
-	Bot   BotAPI
+	tg    tgClient
 }
 
 // New initializes a new Service with the given configuration and returns an error if the configuration is invalid.
@@ -50,7 +50,7 @@ func New(cfg *Config) (*Service, error) {
 
 	return &Service{
 		token: cfg.TelegramToken,
-		Bot:   bot,
+		tg:    bot,
 	}, nil
 }
 
@@ -94,7 +94,7 @@ func (s *Service) processUpdate(ctx context.Context, update *tgbotapi.Update) {
 	cancel()
 
 	// Send response
-	if _, err := s.Bot.Send(msgConfig); err != nil {
+	if _, err := s.tg.Send(msgConfig); err != nil {
 		slog.ErrorContext(ctx, "Failed to send message",
 			slog.Any("error", err),
 		)
@@ -107,7 +107,7 @@ func (s *Service) Run(ctx context.Context) error {
 	updateConfig := tgbotapi.NewUpdate(0)
 	updateConfig.Timeout = 30
 
-	updates := s.Bot.GetUpdatesChan(updateConfig)
+	updates := s.tg.GetUpdatesChan(updateConfig)
 
 	var wg sync.WaitGroup
 
@@ -135,7 +135,7 @@ func (s *Service) Run(ctx context.Context) error {
 
 		case <-ctx.Done():
 			slog.Info("Starting graceful shutdown")
-			s.Bot.StopReceivingUpdates()
+			s.tg.StopReceivingUpdates()
 
 			// Wait for ongoing message processors with a timeout
 			done := make(chan struct{})

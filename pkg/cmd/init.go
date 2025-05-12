@@ -13,32 +13,32 @@ type args struct {
 
 // InitCommands initializes and returns the root command for the application.
 func InitCommands(version string) *cobra.Command {
-	args := &args{
+	arg := &args{
 		version: version,
 	}
 
 	cmd := &cobra.Command{
 		Use:   "mitbot",
-		Short: "Make It Public Telegram Bot",
-		Long:  "Make It Public Telegram Bot is a bot for managing your accounts and tokens.",
+		Short: "Make It Public Telegram tg",
+		Long:  "Make It Public Telegram tg is a bot for managing your accounts and tokens.",
 	}
 
-	cmd.AddCommand(initRunCommand())
+	cmd.AddCommand(initRunCommand(arg))
 
-	cmd.PersistentFlags().StringVar(&args.ConfigPath, "config", "", "config file path")
-	cmd.PersistentFlags().StringVar(&args.LogLevel, "loglevel", "info", "log level (debug, info, warn, error)")
-	cmd.PersistentFlags().BoolVar(&args.TextFormat, "logtext", false, "log in text format, otherwise JSON")
+	cmd.PersistentFlags().StringVar(&arg.ConfigPath, "config", "", "config file path")
+	cmd.PersistentFlags().StringVar(&arg.LogLevel, "loglevel", "info", "log level (debug, info, warn, error)")
+	cmd.PersistentFlags().BoolVar(&arg.TextFormat, "logtext", false, "log in text format, otherwise JSON")
 
 	return cmd
 }
 
-func initRunCommand() *cobra.Command {
+func initRunCommand(arg *args) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run the bot",
 		Long:  "Run the bot with the specified configuration.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return nil
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runBot(cmd.Context(), arg)
 		},
 	}
 

@@ -10,7 +10,7 @@ import (
 )
 
 type appConfig struct {
-	bot bot.Config `mapstructure:"bot"`
+	Bot bot.Config `mapstructure:"bot"`
 }
 
 // loadConfig loads the application configuration using the provided arguments and environment variables.
