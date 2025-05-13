@@ -10,6 +10,7 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/uuid"
+	"github.com/ksysoev/make-it-public-tgbot/pkg/core"
 )
 
 const (
@@ -29,7 +30,7 @@ type Config struct {
 }
 
 type TokenService interface {
-	CreateToken(ctx context.Context, userID string) error
+	CreateToken(ctx context.Context, userID string) (*core.APIToken, error)
 }
 
 type Service struct {
@@ -78,7 +79,7 @@ func (s *Service) processUpdate(ctx context.Context, update *tgbotapi.Update) {
 
 	wg.Add(1)
 
-	msgConfig, err := handleMessage(ctx, msg)
+	msgConfig, err := s.Handle(ctx, msg)
 
 	if errors.Is(err, context.Canceled) {
 		slog.InfoContext(ctx, "Request cancelled",
@@ -160,11 +161,4 @@ func (s *Service) Run(ctx context.Context) error {
 			return nil
 		}
 	}
-}
-
-func handleMessage(_ context.Context, msg *tgbotapi.Message) (tgbotapi.MessageConfig, error) {
-	// Handle the message here
-	// For example, you can send a reply back to the user
-	reply := tgbotapi.NewMessage(msg.Chat.ID, "Hello! You said: "+msg.Text)
-	return reply, nil
 }

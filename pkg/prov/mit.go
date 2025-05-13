@@ -28,8 +28,5 @@ func New(cfg Config) *MIT {
 }
 
 func (m *MIT) GenerateToken() (*core.APIToken, error) {
-
-	m.cl.Post(m.baseUrl+"/generateToken", "application/json", nil)
-
 	return nil, fmt.Errorf("not implemented")
 }

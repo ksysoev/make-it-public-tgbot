@@ -26,6 +26,6 @@ func New(repo UserRepo, prov MITProv) *Service {
 	}
 }
 
-func (s *Service) CreateToken(_ context.Context, _ string) error {
-	return fmt.Errorf("not implemented")
+func (s *Service) CreateToken(_ context.Context, _ string) (*APIToken, error) {
+	return nil, fmt.Errorf("not implemented")
 }
