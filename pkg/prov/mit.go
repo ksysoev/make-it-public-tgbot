@@ -1,8 +1,11 @@
 package prov
 
 import (
+	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/ksysoev/make-it-public-tgbot/pkg/core"
 )
 
 type Config struct {
@@ -22,4 +25,11 @@ func New(cfg Config) *MIT {
 			Timeout: 5 * time.Second,
 		},
 	}
+}
+
+func (m *MIT) GenerateToken() (*core.APIToken, error) {
+
+	m.cl.Post(m.baseUrl+"/generateToken", "application/json", nil)
+
+	return nil, fmt.Errorf("not implemented")
 }

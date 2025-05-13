@@ -11,6 +11,7 @@ type UserRepo interface {
 }
 
 type MITProv interface {
+	GenerateToken() (*APIToken, error)
 }
 
 type Service struct {
