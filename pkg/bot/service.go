@@ -28,13 +28,18 @@ type Config struct {
 	TelegramToken string `mapstructure:"token"`
 }
 
+type TokenService interface {
+	CreateToken(ctx context.Context, userID string) error
+}
+
 type Service struct {
-	token string
-	tg    tgClient
+	token    string
+	tg       tgClient
+	tokenSvc TokenService
 }
 
 // New initializes a new Service with the given configuration and returns an error if the configuration is invalid.
-func New(cfg *Config) (*Service, error) {
+func New(cfg *Config, tokenSvc TokenService) (*Service, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config cannot be nil")
 	}
@@ -49,8 +54,9 @@ func New(cfg *Config) (*Service, error) {
 	}
 
 	return &Service{
-		token: cfg.TelegramToken,
-		tg:    bot,
+		token:    cfg.TelegramToken,
+		tg:       bot,
+		tokenSvc: tokenSvc,
 	}, nil
 }
 

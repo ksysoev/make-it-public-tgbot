@@ -20,7 +20,7 @@ type User struct {
 }
 
 // New initializes and returns a new User instance configured with the provided Config.
-func New(cfg *Config) *User {
+func New(cfg Config) *User {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     cfg.RedisAddr,
 		Password: cfg.Password,

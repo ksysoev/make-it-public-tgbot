@@ -15,7 +15,7 @@ type MIT struct {
 }
 
 // New creates and returns a new instance of the MIT struct initialized with the provided configuration.
-func New(cfg *Config) *MIT {
+func New(cfg Config) *MIT {
 	return &MIT{
 		baseUrl: cfg.Url,
 		cl: &http.Client{
