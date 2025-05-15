@@ -3,9 +3,14 @@ package repo
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
+)
+
+const (
+	ttlOffset = 60 * time.Second
 )
 
 type Config struct {
@@ -17,6 +22,7 @@ type Config struct {
 type User struct {
 	db        *redis.Client
 	keyPrefix string
+	mu        sync.Mutex
 }
 
 // New initializes and returns a new User instance configured with the provided Config.
@@ -42,7 +48,7 @@ func (u *User) AddAPIKey(ctx context.Context, userID string, apiKeyID string, ex
 	redisKey := u.keyPrefix + userID
 
 	res, err := u.db.ZAdd(ctx, redisKey, redis.Z{
-		Score:  float64(time.Now().Add(expiresIn).Unix()),
+		Score:  float64(time.Now().Add(expiresIn - ttlOffset).Unix()),
 		Member: apiKeyID,
 	}).Result()
 
@@ -55,4 +61,22 @@ func (u *User) AddAPIKey(ctx context.Context, userID string, apiKeyID string, ex
 	}
 
 	return nil
+}
+
+// GetAPIKeys retrieves all API keys for a user from the Redis store. Returns a slice of API keys and an error if the operation fails.
+func (u *User) GetAPIKeys(ctx context.Context, userID string) ([]string, error) {
+	redisKey := u.keyPrefix + userID
+
+	// clean up expired keys
+	_, err := u.db.ZRemRangeByScore(ctx, redisKey, "-inf", fmt.Sprintf("%d", time.Now().Unix())).Result()
+	if err != nil {
+		return nil, fmt.Errorf("failed to remove expired API keys: %w", err)
+	}
+
+	keys, err := u.db.ZRange(ctx, redisKey, 0, -1).Result()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get API keys: %w", err)
+	}
+
+	return keys, nil
 }
