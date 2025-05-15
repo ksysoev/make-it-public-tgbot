@@ -6,11 +6,15 @@ import (
 	"strings"
 
 	"github.com/ksysoev/make-it-public-tgbot/pkg/bot"
+	"github.com/ksysoev/make-it-public-tgbot/pkg/prov"
+	"github.com/ksysoev/make-it-public-tgbot/pkg/repo"
 	"github.com/spf13/viper"
 )
 
 type appConfig struct {
-	Bot bot.Config `mapstructure:"bot"`
+	Bot  bot.Config  `mapstructure:"bot"`
+	MIT  prov.Config `mapstructure:"mit"`
+	Repo repo.Config `mapstructure:"repo"`
 }
 
 // loadConfig loads the application configuration using the provided arguments and environment variables.

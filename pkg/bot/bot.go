@@ -10,6 +10,7 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/uuid"
+	"github.com/ksysoev/make-it-public-tgbot/pkg/core"
 )
 
 const (
@@ -28,13 +29,18 @@ type Config struct {
 	TelegramToken string `mapstructure:"token"`
 }
 
+type TokenService interface {
+	CreateToken(ctx context.Context, userID string) (*core.APIToken, error)
+}
+
 type Service struct {
-	token string
-	tg    tgClient
+	token    string
+	tg       tgClient
+	tokenSvc TokenService
 }
 
 // New initializes a new Service with the given configuration and returns an error if the configuration is invalid.
-func New(cfg *Config) (*Service, error) {
+func New(cfg *Config, tokenSvc TokenService) (*Service, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config cannot be nil")
 	}
@@ -49,8 +55,9 @@ func New(cfg *Config) (*Service, error) {
 	}
 
 	return &Service{
-		token: cfg.TelegramToken,
-		tg:    bot,
+		token:    cfg.TelegramToken,
+		tg:       bot,
+		tokenSvc: tokenSvc,
 	}, nil
 }
 
@@ -72,7 +79,7 @@ func (s *Service) processUpdate(ctx context.Context, update *tgbotapi.Update) {
 
 	wg.Add(1)
 
-	msgConfig, err := handleMessage(ctx, msg)
+	msgConfig, err := s.Handle(ctx, msg)
 
 	if errors.Is(err, context.Canceled) {
 		slog.InfoContext(ctx, "Request cancelled",
@@ -154,11 +161,4 @@ func (s *Service) Run(ctx context.Context) error {
 			return nil
 		}
 	}
-}
-
-func handleMessage(_ context.Context, msg *tgbotapi.Message) (tgbotapi.MessageConfig, error) {
-	// Handle the message here
-	// For example, you can send a reply back to the user
-	reply := tgbotapi.NewMessage(msg.Chat.ID, "Hello! You said: "+msg.Text)
-	return reply, nil
 }

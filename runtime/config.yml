@@ -1,0 +1,8 @@
+bot:
+  token: "Here goes your bot token"
+mit:
+  url: "http://localhost:8082"
+repo:
+  redis_addr: "localhost:6379"
+  redis_password: ""
+  key_prefix: "MITTGBOT::"
