@@ -76,5 +76,5 @@ func (m *MIT) GenerateToken() (*core.APIToken, error) {
 		ExpiresIn: tokenResp.TTL,
 	}
 
-	return &token, fmt.Errorf("not implemented")
+	return &token, nil
 }
