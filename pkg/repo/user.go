@@ -3,7 +3,6 @@ package repo
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -22,7 +21,6 @@ type Config struct {
 type User struct {
 	db        *redis.Client
 	keyPrefix string
-	mu        sync.Mutex
 }
 
 // New initializes and returns a new User instance configured with the provided Config.
