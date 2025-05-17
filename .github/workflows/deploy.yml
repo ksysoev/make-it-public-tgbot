@@ -32,4 +32,4 @@ jobs:
             export MIT_URL=${{ secrets.MIT_URL }}
             export REPO_REDIS_ADDR=${{ secrets.REPO_REDIS_ADDR }}
             export NETWORK_NAME=${{ env.MIT_NETWORK }}
-            docker stack deploy -c docker-compose.yml makeitpublic
+            docker stack deploy -c docker-compose.yml mitbot
