@@ -25,7 +25,7 @@ jobs:
           key: ${{secrets.SSH_KEY}}
           port: ${{secrets.PORT}}
           script: |
-            cd make-it-public
+            cd make-it-public-tgbot
             git pull
             docker compose pull
             export BOT_TOKEN=${{ secrets.BOT_TOKEN }}
