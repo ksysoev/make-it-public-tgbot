@@ -1,0 +1,18 @@
+disable-version-string: true
+resolve-type-alias: false
+with-expecter: true
+mock-build-tags: "!compile"
+inpackage: true
+issue-845-fix: true
+filename: "{{.InterfaceName | snakecase }}_mock.go"
+dir: "{{.InterfaceDir}}"
+mockname: "Mock{{.InterfaceName}}"
+packages:
+  github.com/ksysoev/make-it-public-tgbot/pkg/core:
+    interfaces:
+      UserRepo:
+      MITProv:
+  github.com/ksysoev/make-it-public-tgbot/pkg/bot:
+    interfaces:
+      tgClient:
+      TokenService:

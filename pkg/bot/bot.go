@@ -78,6 +78,7 @@ func (s *Service) processUpdate(ctx context.Context, update *tgbotapi.Update) {
 	defer cancel()
 
 	wg.Add(1)
+	defer wg.Done() // Ensure wg.Done() is called when the function returns
 
 	msgConfig, err := s.Handle(ctx, msg)
 
