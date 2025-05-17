@@ -1,0 +1,21 @@
+services:
+  mitbot:
+    build:
+      context: .
+    image: "ghcr.io/ksysoev/make-it-public-tgbot:main"
+    restart: unless-stopped
+    container_name: mitbot
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - MIT_URL=${MIT_URL}
+      - MIT_DEFAULT_TTL=604800
+      - REPO_REDIS_ADDR=${REPO_REDIS_ADDR}
+      - REPO_KEY_PREFIX=MITTGBOT::
+    command: ["run"]
+    depends_on:
+      - redis
+
+networks:
+  default:
+    external: true
+    name: ${NETWORK_NAME:-mit-network}
