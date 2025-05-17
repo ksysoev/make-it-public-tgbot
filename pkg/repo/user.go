@@ -45,7 +45,7 @@ func (u *User) Close() error {
 func (u *User) AddAPIKey(ctx context.Context, userID string, apiKeyID string, expiresIn time.Duration) error {
 	redisKey := u.keyPrefix + userID
 
-	res, err := u.db.ZAdd(ctx, redisKey, redis.Z{
+	_, err := u.db.ZAdd(ctx, redisKey, redis.Z{
 		Score:  float64(time.Now().Add(expiresIn - ttlOffset).Unix()),
 		Member: apiKeyID,
 	}).Result()
@@ -54,9 +54,8 @@ func (u *User) AddAPIKey(ctx context.Context, userID string, apiKeyID string, ex
 		return fmt.Errorf("failed to add API key: %w", err)
 	}
 
-	if res == 0 {
-		return fmt.Errorf("no API key added")
-	}
+	// If the result is 0, it means the member already exists in the sorted set
+	// This is not an error, so we don't need to return one
 
 	return nil
 }
@@ -66,12 +65,17 @@ func (u *User) GetAPIKeys(ctx context.Context, userID string) ([]string, error) 
 	redisKey := u.keyPrefix + userID
 
 	// clean up expired keys
-	_, err := u.db.ZRemRangeByScore(ctx, redisKey, "-inf", fmt.Sprintf("%d", time.Now().Unix())).Result()
+	now := time.Now().Unix()
+	_, err := u.db.ZRemRangeByScore(ctx, redisKey, "-inf", fmt.Sprintf("%d", now)).Result()
 	if err != nil {
 		return nil, fmt.Errorf("failed to remove expired API keys: %w", err)
 	}
 
-	keys, err := u.db.ZRange(ctx, redisKey, 0, -1).Result()
+	// Get keys with scores greater than current time (not expired)
+	keys, err := u.db.ZRangeByScore(ctx, redisKey, &redis.ZRangeBy{
+		Min: fmt.Sprintf("%d", now),
+		Max: "+inf",
+	}).Result()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get API keys: %w", err)
 	}
