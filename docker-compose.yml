@@ -10,7 +10,7 @@ services:
       - MIT_URL=${MIT_URL}
       - MIT_DEFAULT_TTL=604800
       - REPO_REDIS_ADDR=${REPO_REDIS_ADDR}
-      - REPO_KEY_PREFIX=MITTGBOT::
+      - "REPO_KEY_PREFIX=MITTGBOT::"
     command: ["run"]
     depends_on:
       - redis
