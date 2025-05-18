@@ -37,6 +37,7 @@ type Service struct {
 	token    string
 	tg       tgClient
 	tokenSvc TokenService
+	handler  Handler
 }
 
 // New initializes a new Service with the given configuration and returns an error if the configuration is invalid.
@@ -54,11 +55,15 @@ func New(cfg *Config, tokenSvc TokenService) (*Service, error) {
 		return nil, fmt.Errorf("failed to create Telegram bot: %w", err)
 	}
 
-	return &Service{
+	s := &Service{
 		token:    cfg.TelegramToken,
 		tg:       bot,
 		tokenSvc: tokenSvc,
-	}, nil
+	}
+
+	s.handler = s.setupHandler()
+
+	return s, nil
 }
 
 func (s *Service) processUpdate(ctx context.Context, update *tgbotapi.Update) {
@@ -80,7 +85,7 @@ func (s *Service) processUpdate(ctx context.Context, update *tgbotapi.Update) {
 	wg.Add(1)
 	defer wg.Done() // Ensure wg.Done() is called when the function returns
 
-	msgConfig, err := s.Handle(ctx, msg)
+	msgConfig, err := s.handler.Handle(ctx, msg)
 
 	if errors.Is(err, context.Canceled) {
 		slog.InfoContext(ctx, "Request cancelled",

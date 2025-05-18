@@ -118,7 +118,7 @@ func TestHandle(t *testing.T) {
 					Token:     "token123",
 					ExpiresIn: 3600,
 				}
-				mockTokenSvc.On("CreateToken", mock.Anything, "456").Return(token, nil)
+				mockTokenSvc.EXPECT().CreateToken(mock.Anything, "456").Return(token, nil)
 			},
 			wantErr: false,
 		},
@@ -141,7 +141,7 @@ func TestHandle(t *testing.T) {
 				},
 			},
 			setupMocks: func() {
-				mockTokenSvc.On("CreateToken", mock.Anything, "456").Return(nil, core.ErrMaxTokensExceeded)
+				mockTokenSvc.EXPECT().CreateToken(mock.Anything, "456").Return(nil, core.ErrMaxTokensExceeded)
 			},
 			wantText: tokenExistsMessage,
 			wantErr:  false,
@@ -165,7 +165,7 @@ func TestHandle(t *testing.T) {
 				},
 			},
 			setupMocks: func() {
-				mockTokenSvc.On("CreateToken", mock.Anything, "456").Return(nil, errors.New("some error"))
+				mockTokenSvc.EXPECT().CreateToken(mock.Anything, "456").Return(nil, errors.New("some error"))
 			},
 			wantErr: true,
 		},
@@ -217,7 +217,6 @@ func TestHandle(t *testing.T) {
 			if tt.wantText != "" {
 				assert.Equal(t, tt.wantText, msg.Text)
 			}
-			mockTokenSvc.AssertExpectations(t)
 		})
 	}
 }
@@ -235,6 +234,8 @@ func TestProcessUpdate(t *testing.T) {
 		tg:       mockTg,
 		tokenSvc: mockTokenSvc,
 	}
+
+	svc.handler = svc
 
 	tests := []struct {
 		name       string
@@ -266,7 +267,7 @@ func TestProcessUpdate(t *testing.T) {
 				},
 			},
 			setupMocks: func() {
-				mockTg.On("Send", mock.Anything).Return(tgbotapi.Message{}, nil)
+				mockTg.EXPECT().Send(mock.Anything).Return(tgbotapi.Message{}, nil)
 			},
 		},
 	}
@@ -278,8 +279,6 @@ func TestProcessUpdate(t *testing.T) {
 			tt.setupMocks()
 
 			svc.processUpdate(context.Background(), tt.update)
-			mockTg.AssertExpectations(t)
-			mockTokenSvc.AssertExpectations(t)
 		})
 	}
 }
