@@ -23,6 +23,9 @@ func (h ContextHandler) Handle(ctx context.Context, r slog.Record) error {
 	if requestID, ok := ctx.Value("req_id").(string); ok {
 		r.AddAttrs(slog.String("req_id", requestID))
 	}
+	if chatID, ok := ctx.Value("chat_id").(string); ok {
+		r.AddAttrs(slog.String("chat_id", chatID))
+	}
 
 	r.AddAttrs(slog.String("app", h.app), slog.String("ver", h.ver))
 
