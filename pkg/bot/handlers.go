@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/ksysoev/help-my-pet/pkg/bot/middleware"
 	"github.com/ksysoev/make-it-public-tgbot/pkg/core"
 )
 
@@ -18,6 +19,31 @@ const (
 	tokenExistsMessage    = "⚠️ You already have an active API token. You can create a new one after your current token expires."
 	notCommandMessage     = "I can only respond to commands. Try /help to see what I can do."
 )
+
+// Handler defines the interface for processing and responding to incoming messages in a Telegram bot context.
+// It handles a message by performing necessary processing and returns the configuration for the outgoing message or an error.
+// ctx is the context for managing request lifecycle and cancellation.
+// message is the incoming Telegram message to be processed.
+// Returns a configured message object for sending a response and an error if processing fails.
+type Handler interface {
+	Handle(ctx context.Context, message *tgbotapi.Message) (tgbotapi.MessageConfig, error)
+}
+
+// setupHandler initializes and configures the request handler with specified middleware components.
+// It applies middleware for request reduction, concurrency throttling, metric collection, and error handling,
+// ensuring proper management of requests and enhanced error messages.
+// Returns a Handler that processes messages with the applied middleware stack.
+func (s *Service) setupHandler() Handler {
+	h := middleware.Use(
+		s,
+		middleware.WithRequestReducer(),
+		middleware.WithThrottler(30),
+		middleware.WithMetrics(),
+		middleware.WithErrorHandling(),
+	)
+
+	return h
+}
 
 func (s *Service) Handle(ctx context.Context, msg *tgbotapi.Message) (tgbotapi.MessageConfig, error) {
 	if msg.Command() != "" {
