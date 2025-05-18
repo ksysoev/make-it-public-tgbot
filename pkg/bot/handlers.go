@@ -36,8 +36,8 @@ type Handler interface {
 func (s *Service) setupHandler() Handler {
 	h := middleware.Use(
 		s,
-		middleware.WithRequestReducer(),
 		middleware.WithThrottler(30),
+		middleware.WithRequestSequencer(),
 		middleware.WithMetrics(),
 		middleware.WithErrorHandling(),
 	)
