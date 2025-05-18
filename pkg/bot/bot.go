@@ -55,11 +55,15 @@ func New(cfg *Config, tokenSvc TokenService) (*Service, error) {
 		return nil, fmt.Errorf("failed to create Telegram bot: %w", err)
 	}
 
-	return &Service{
+	s := &Service{
 		token:    cfg.TelegramToken,
 		tg:       bot,
 		tokenSvc: tokenSvc,
-	}, nil
+	}
+
+	s.handler = s.setupHandler()
+
+	return s, nil
 }
 
 func (s *Service) processUpdate(ctx context.Context, update *tgbotapi.Update) {
@@ -112,8 +116,6 @@ func (s *Service) processUpdate(ctx context.Context, update *tgbotapi.Update) {
 
 func (s *Service) Run(ctx context.Context) error {
 	slog.InfoContext(ctx, "Starting Telegram bot")
-
-	s.handler = s.setupHandler()
 
 	updateConfig := tgbotapi.NewUpdate(0)
 	updateConfig.Timeout = 30
