@@ -2,7 +2,7 @@ services:
   mitbot:
     build:
       context: .
-    image: "ghcr.io/ksysoev/make-it-public-tgbot:main"
+    image: "ghcr.io/ksysoev/make-it-public-tgbot:${VERSION:-latest}"
     restart: unless-stopped
     container_name: mitbot
     environment:
@@ -12,8 +12,6 @@ services:
       - REPO_REDIS_ADDR=${REPO_REDIS_ADDR}
       - "REPO_KEY_PREFIX=MITTGBOT::"
     command: ["run"]
-    depends_on:
-      - redis
 
 networks:
   default:
