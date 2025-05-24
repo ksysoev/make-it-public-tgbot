@@ -1,7 +1,9 @@
 package core
 
+import "time"
+
 type APIToken struct {
 	KeyID     string
 	Token     string
-	ExpiresIn int64
+	ExpiresIn time.Duration
 }

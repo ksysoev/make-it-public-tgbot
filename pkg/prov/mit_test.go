@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/ksysoev/make-it-public-tgbot/pkg/core"
 	"github.com/stretchr/testify/assert"
@@ -48,7 +49,7 @@ func TestGenerateToken(t *testing.T) {
 
 				// Send response
 				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusOK)
+				w.WriteHeader(http.StatusCreated)
 				resp := generateTokenResponse{
 					Token: "test-token",
 					KeyID: "test-key-id",
@@ -59,7 +60,7 @@ func TestGenerateToken(t *testing.T) {
 			expectedToken: &core.APIToken{
 				Token:     "test-token",
 				KeyID:     "test-key-id",
-				ExpiresIn: 3600,
+				ExpiresIn: time.Hour,
 			},
 			expectedError: "",
 		},
@@ -77,7 +78,7 @@ func TestGenerateToken(t *testing.T) {
 			defaultTTL: 3600,
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusOK)
+				w.WriteHeader(http.StatusCreated)
 				_, _ = w.Write([]byte("invalid json"))
 			},
 			expectedToken: nil,
@@ -109,6 +110,93 @@ func TestGenerateToken(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.expectedToken, token)
+			}
+		})
+	}
+}
+
+func TestRevokeToken(t *testing.T) {
+	tests := []struct {
+		name           string
+		keyID          string
+		serverResponse func(w http.ResponseWriter, r *http.Request)
+		expectedError  string
+	}{
+		{
+			name:  "success",
+			keyID: "valid-key",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				// Verify request
+				assert.Equal(t, http.MethodDelete, r.Method)
+				assert.Equal(t, "/token/valid-key", r.URL.Path)
+
+				// Send success response
+				w.WriteHeader(http.StatusNoContent)
+			},
+			expectedError: "",
+		},
+		{
+			name:  "not found",
+			keyID: "invalid-key",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				// Verify request
+				assert.Equal(t, http.MethodDelete, r.Method)
+				assert.Equal(t, "/token/invalid-key", r.URL.Path)
+
+				// Send "not found" response
+				w.WriteHeader(http.StatusNotFound)
+			},
+			expectedError: "",
+		},
+		{
+			name:  "server error",
+			keyID: "error-key",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				// Verify request
+				assert.Equal(t, http.MethodDelete, r.Method)
+				assert.Equal(t, "/token/error-key", r.URL.Path)
+
+				// Send error response
+				w.WriteHeader(http.StatusInternalServerError)
+			},
+			expectedError: "failed to revoke token, status code: 500",
+		},
+		{
+			name:  "bad request",
+			keyID: "bad-request-key",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				// Verify request
+				assert.Equal(t, http.MethodDelete, r.Method)
+				assert.Equal(t, "/token/bad-request-key", r.URL.Path)
+
+				// Send bad request response
+				w.WriteHeader(http.StatusBadRequest)
+			},
+			expectedError: "failed to revoke token, status code: 400",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create test server
+			server := httptest.NewServer(http.HandlerFunc(tt.serverResponse))
+			defer server.Close()
+
+			// Create MIT instance with test server URL
+			mit := &MIT{
+				baseUrl: server.URL,
+				cl:      &http.Client{},
+			}
+
+			// Call the method
+			err := mit.RevokeToken(tt.keyID)
+
+			// Verify results
+			if tt.expectedError != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}

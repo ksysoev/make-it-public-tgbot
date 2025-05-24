@@ -49,7 +49,7 @@ func (s *Service) CreateToken(ctx context.Context, userID string) (*APIToken, er
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
 
-	if err = s.repo.AddAPIKey(ctx, userID, token.KeyID, time.Duration(token.ExpiresIn)*time.Second); err != nil {
+	if err = s.repo.AddAPIKey(ctx, userID, token.KeyID, token.ExpiresIn); err != nil {
 		return nil, fmt.Errorf("failed to add API key: %w", err)
 	}
 
