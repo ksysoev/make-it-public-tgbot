@@ -121,3 +121,72 @@ func TestClose(t *testing.T) {
 	err := user.Close()
 	assert.NoError(t, err)
 }
+
+func TestRevokeToken(t *testing.T) {
+	mr, user := setupRedis(t)
+	defer mr.Close()
+
+	ctx := context.Background()
+	userID := "user123"
+	apiKeyID := "key123"
+	expiresIn := 3600 * time.Second
+
+	// Add a key to revoke
+	err := user.AddAPIKey(ctx, userID, apiKeyID, expiresIn)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name          string
+		setup         func()
+		targetKey     string
+		expectedError bool
+		expectedKeys  []string
+	}{
+		{
+			name: "revoke existing key",
+			setup: func() {
+				// Key already added in setup
+			},
+			targetKey:     apiKeyID,
+			expectedError: false,
+			expectedKeys:  []string{},
+		},
+		{
+			name: "revoke non-existing key",
+			setup: func() {
+				// Clear all keys explicitly
+				mr.FlushAll()
+			},
+			targetKey:     "non_existent_key",
+			expectedError: false,
+			expectedKeys:  []string{},
+		},
+		{
+			name: "revoke key when user has multiple keys",
+			setup: func() {
+				anotherAPIKeyID := "key456"
+				err := user.AddAPIKey(ctx, userID, anotherAPIKeyID, expiresIn)
+				require.NoError(t, err)
+			},
+			targetKey:     apiKeyID,
+			expectedError: false,
+			expectedKeys:  []string{"key456"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
+
+			err := user.RevokeToken(ctx, userID, tt.targetKey)
+			if tt.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			keys, _ := user.GetAPIKeys(ctx, userID)
+			assert.ElementsMatch(t, tt.expectedKeys, keys)
+		})
+	}
+}

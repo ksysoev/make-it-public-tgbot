@@ -13,10 +13,12 @@ var (
 type UserRepo interface {
 	AddAPIKey(ctx context.Context, userID string, apiKeyID string, expiresIn time.Duration) error
 	GetAPIKeys(ctx context.Context, userID string) ([]string, error)
+	RevokeToken(ctx context.Context, userID string, apiKeyID string) error
 }
 
 type MITProv interface {
 	GenerateToken() (*APIToken, error)
+	RevokeToken(keyID string) error
 }
 
 type Service struct {
@@ -54,4 +56,32 @@ func (s *Service) CreateToken(ctx context.Context, userID string) (*APIToken, er
 	}
 
 	return token, nil
+}
+
+// RevokeToken revokes a user's single existing API token, removing it from both the provider and the repository.
+// Returns an error if multiple or no tokens exist, or if any step in the revocation process fails.
+func (s *Service) RevokeToken(ctx context.Context, userID string) error {
+	keys, err := s.repo.GetAPIKeys(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to get API keys: %w", err)
+	}
+
+	if len(keys) == 0 {
+		return fmt.Errorf("no API keys found for user %s", userID)
+	}
+
+	if len(keys) > 1 {
+		return fmt.Errorf("multiple API keys found for user %s, cannot revoke", userID)
+	}
+
+	keyID := keys[0]
+	if err := s.prov.RevokeToken(keyID); err != nil {
+		return fmt.Errorf("failed to revoke token: %w", err)
+	}
+
+	if err := s.repo.RevokeToken(ctx, userID, keyID); err != nil {
+		return fmt.Errorf("failed to remove API key from repository: %w", err)
+	}
+
+	return nil
 }

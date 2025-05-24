@@ -76,6 +76,52 @@ func (_c *MockMITProv_GenerateToken_Call) RunAndReturn(run func() (*APIToken, er
 	return _c
 }
 
+// RevokeToken provides a mock function with given fields: keyID
+func (_m *MockMITProv) RevokeToken(keyID string) error {
+	ret := _m.Called(keyID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RevokeToken")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(keyID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockMITProv_RevokeToken_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RevokeToken'
+type MockMITProv_RevokeToken_Call struct {
+	*mock.Call
+}
+
+// RevokeToken is a helper method to define mock.On call
+//   - keyID string
+func (_e *MockMITProv_Expecter) RevokeToken(keyID interface{}) *MockMITProv_RevokeToken_Call {
+	return &MockMITProv_RevokeToken_Call{Call: _e.mock.On("RevokeToken", keyID)}
+}
+
+func (_c *MockMITProv_RevokeToken_Call) Run(run func(keyID string)) *MockMITProv_RevokeToken_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(string))
+	})
+	return _c
+}
+
+func (_c *MockMITProv_RevokeToken_Call) Return(_a0 error) *MockMITProv_RevokeToken_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockMITProv_RevokeToken_Call) RunAndReturn(run func(string) error) *MockMITProv_RevokeToken_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockMITProv creates a new instance of MockMITProv. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockMITProv(t interface {

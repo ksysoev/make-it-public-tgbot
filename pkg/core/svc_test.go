@@ -42,14 +42,14 @@ func TestCreateToken(t *testing.T) {
 			token: &APIToken{
 				KeyID:     "key123",
 				Token:     "token123",
-				ExpiresIn: 3600,
+				ExpiresIn: time.Hour,
 			},
 			generateErr: nil,
 			addKeyErr:   nil,
 			expectedToken: &APIToken{
 				KeyID:     "key123",
 				Token:     "token123",
-				ExpiresIn: 3600,
+				ExpiresIn: time.Hour,
 			},
 			expectedErr:  nil,
 			expectAddKey: true,
@@ -98,7 +98,7 @@ func TestCreateToken(t *testing.T) {
 			token: &APIToken{
 				KeyID:     "key123",
 				Token:     "token123",
-				ExpiresIn: 3600,
+				ExpiresIn: time.Hour,
 			},
 			generateErr:   nil,
 			addKeyErr:     errors.New("add key error"),
