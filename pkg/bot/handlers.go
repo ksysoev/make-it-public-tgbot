@@ -18,6 +18,7 @@ const (
 	tokenCreatedMessage   = "🔑 Your New API Token\n\n%s\n\n⏱ Valid until: %s\n\nKeep this token secure and don't share it with others."
 	tokenExistsMessage    = "⚠️ You already have an active API token. You can create a new one after your current token expires."
 	notCommandMessage     = "I can only respond to commands. Try /help to see what I can do."
+	tokenRevokedMessage   = "🔒 Your API token has been successfully revoked.\n\nYou can create a new one using /new_token command."
 )
 
 // Handler defines the interface for processing and responding to incoming messages in a Telegram bot context.
@@ -78,6 +79,12 @@ func (s *Service) handleCommand(ctx context.Context, msg *tgbotapi.Message) (tgb
 
 			return message, nil
 		}
+	case "revoke_token":
+		if err := s.tokenSvc.RevokeToken(ctx, fmt.Sprintf("%d", msg.From.ID)); err != nil {
+			return tgbotapi.MessageConfig{}, fmt.Errorf("failed to revoke token: %w", err)
+		}
+
+		return tgbotapi.NewMessage(msg.Chat.ID, tokenRevokedMessage), nil
 	default:
 		return tgbotapi.NewMessage(msg.Chat.ID, unknownCommandMessage), nil
 	}
