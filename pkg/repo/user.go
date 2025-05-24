@@ -82,3 +82,15 @@ func (u *User) GetAPIKeys(ctx context.Context, userID string) ([]string, error) 
 
 	return keys, nil
 }
+
+// RevokeToken removes the specified API key for a user from the Redis store. Returns an error if the operation fails.
+func (u *User) RevokeToken(ctx context.Context, userID string, apiKeyID string) error {
+	redisKey := u.keyPrefix + userID
+
+	_, err := u.db.ZRem(ctx, redisKey, apiKeyID).Result()
+	if err != nil {
+		return fmt.Errorf("failed to revoke API key: %w", err)
+	}
+
+	return nil
+}

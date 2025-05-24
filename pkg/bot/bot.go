@@ -31,6 +31,7 @@ type Config struct {
 
 type TokenService interface {
 	CreateToken(ctx context.Context, userID string) (*core.APIToken, error)
+	RevokeToken(ctx context.Context, userID string) error
 }
 
 type Service struct {
