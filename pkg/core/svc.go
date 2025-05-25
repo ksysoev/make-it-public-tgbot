@@ -20,6 +20,8 @@ type UserRepo interface {
 	AddAPIKey(ctx context.Context, userID string, apiKeyID string, expiresIn time.Duration) error
 	GetAPIKeys(ctx context.Context, userID string) ([]string, error)
 	RevokeToken(ctx context.Context, userID string, apiKeyID string) error
+	SaveConversation(ctx context.Context, conversation *conv.Conversation) error
+	GetConversation(ctx context.Context, conversationID string) (*conv.Conversation, error)
 }
 
 type MITProv interface {
@@ -66,6 +68,10 @@ func (s *Service) CreateToken(ctx context.Context, userID string) (*Response, er
 
 		c.StartQuestions(questions)
 		q, _ := questions.GetQuestion()
+
+		if err := s.repo.SaveConversation(ctx, c); err != nil {
+			return nil, fmt.Errorf("failed to save conversation: %w", err)
+		}
 
 		return &Response{
 			Message: q.Text,
