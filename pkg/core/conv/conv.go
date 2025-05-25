@@ -28,7 +28,7 @@ func New(id string) *Conversation {
 	}
 }
 
-func (c *Conversation) StartQuestions(questions Questions) {
+func (c *Conversation) StartQuestions(questions *Questions) {
 	c.State = questions.Kind
-	c.Questionnaire = &questions
+	c.Questionnaire = questions
 }

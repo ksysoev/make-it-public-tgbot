@@ -4,6 +4,12 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/ksysoev/make-it-public-tgbot/pkg/core/conv"
+)
+
+const (
+	tokenCreatedMessage = "🔑 Your New API Token\n\n%s\n\n⏱ Valid until: %s\n\nKeep this token secure and don't share it with others."
 )
 
 var (
@@ -21,6 +27,11 @@ type MITProv interface {
 	RevokeToken(keyID string) error
 }
 
+type Response struct {
+	Message string   `json:"message"` // Main response message
+	Answers []string `json:"answers"` // Possible answers for the follow-up question
+}
+
 type Service struct {
 	repo UserRepo
 	prov MITProv
@@ -36,14 +47,30 @@ func New(repo UserRepo, prov MITProv) *Service {
 
 // CreateToken generates a new API token for the specified user, storing it in the repository, if token limits are not exceeded.
 // Returns an error if the token limit is reached, fails to generate the token, or fails to save the token in the repository.
-func (s *Service) CreateToken(ctx context.Context, userID string) (*APIToken, error) {
+func (s *Service) CreateToken(ctx context.Context, userID string) (*Response, error) {
 	keys, err := s.repo.GetAPIKeys(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get API keys: %w", err)
 	}
 
 	if len(keys) > 0 {
-		return nil, ErrMaxTokensExceeded
+		c := conv.New(userID)
+
+		questions := conv.NewQuestions(
+			"tokenExists",
+			[]conv.Question{{
+				Text:    "You already have an active API token. Do you want to regenerate it?",
+				Answers: []string{"Yes", "No"},
+			}},
+		)
+
+		c.StartQuestions(questions)
+		q, _ := questions.GetQuestion()
+
+		return &Response{
+			Message: q.Text,
+			Answers: q.Answers,
+		}, nil
 	}
 
 	token, err := s.prov.GenerateToken()
@@ -55,7 +82,10 @@ func (s *Service) CreateToken(ctx context.Context, userID string) (*APIToken, er
 		return nil, fmt.Errorf("failed to add API key: %w", err)
 	}
 
-	return token, nil
+	expiresAt := time.Now().Add(token.ExpiresIn).Format(time.DateTime)
+	return &Response{
+		Message: fmt.Sprintf(tokenCreatedMessage, token.Token, expiresAt),
+	}, nil
 }
 
 // RevokeToken revokes a user's single existing API token, removing it from both the provider and the repository.
