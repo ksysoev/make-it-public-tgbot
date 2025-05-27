@@ -12,8 +12,20 @@ import (
 )
 
 const (
-	welcomeMessage        = "👋 Welcome to Make It Public Bot!\n\nI help you manage API tokens for https://make-it-public.dev - a service that allows you to securely publish services hidden behind NAT.\n\nUse /help to see available commands."
-	helpMessage           = "Available Commands:\n\n/start - Show welcome message\n/help - Display this help message\n/new_token - Generate a new API token\n\nAbout Make It Public:\nMake It Public allows you to securely expose services that are behind NAT or firewalls to the internet."
+	welcomeMessage = `👋 Welcome to Make It Public Bot!
+
+I help you manage API tokens for https://make-it-public.dev - a service that allows you to securely publish services hidden behind NAT.
+
+Use /help to see available commands.`
+	helpMessage = `Available Commands:
+
+/start - Show welcome message
+/help - Display this help message
+/new_token - Generate a new API token
+/revoke_token - Revoke your current API token
+
+About Make It Public:
+Make It Public allows you to securely expose services that are behind NAT or firewalls to the internet.`
 	unknownCommandMessage = "❓ Unknown command.\n\nUse /help to see the list of available commands."
 	tokenCreatedMessage   = "🔑 Your New API Token\n\n%s\n\n⏱ Valid until: %s\n\nKeep this token secure and don't share it with others."
 	tokenExistsMessage    = "⚠️ You already have an active API token. You can create a new one after your current token expires."
