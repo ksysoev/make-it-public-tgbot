@@ -16,9 +16,9 @@ type QuestionAnswer struct {
 }
 
 type Conversation struct {
-	ID            string
-	State         string     `json:"state"`
-	Questionnaire *Questions `json:"Questions"`
+	ID        string
+	State     string     `json:"state"`
+	Questions *Questions `json:"Questions"`
 }
 
 func New(id string) *Conversation {
@@ -30,5 +30,5 @@ func New(id string) *Conversation {
 
 func (c *Conversation) StartQuestions(questions *Questions) {
 	c.State = questions.Kind
-	c.Questionnaire = questions
+	c.Questions = questions
 }
