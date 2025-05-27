@@ -105,7 +105,7 @@ func TestGetAPIKeys(t *testing.T) {
 	mr.FastForward(expiresIn + ttlOffset + time.Second)
 
 	// Manually delete the keys to simulate expiration
-	redisKey := user.keyPrefix + userID
+	redisKey := user.keyPrefix + apiKeyPrefix + userID
 	user.db.Del(ctx, redisKey)
 
 	// Keys should be empty after deletion
