@@ -86,7 +86,7 @@ func (s *Service) handleCommand(ctx context.Context, msg *tgbotapi.Message) (tgb
 		case err != nil:
 			return tgbotapi.MessageConfig{}, fmt.Errorf("failed to create token: %w", err)
 		default:
-			expiresAt := time.Now().Add(time.Duration(token.ExpiresIn) * time.Second).Format(time.DateTime)
+			expiresAt := time.Now().Add(token.ExpiresIn).Format(time.DateTime)
 			tokenMsg := fmt.Sprintf(tokenCreatedMessage, token.Token, expiresAt)
 			message := tgbotapi.NewMessage(msg.Chat.ID, tokenMsg)
 
