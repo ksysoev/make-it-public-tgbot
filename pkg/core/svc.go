@@ -8,6 +8,7 @@ import (
 
 var (
 	ErrMaxTokensExceeded = fmt.Errorf("maximum tokens exceeded")
+	ErrTokenNotFound     = fmt.Errorf("token not found")
 )
 
 type UserRepo interface {
@@ -67,7 +68,7 @@ func (s *Service) RevokeToken(ctx context.Context, userID string) error {
 	}
 
 	if len(keys) == 0 {
-		return fmt.Errorf("no API keys found for user %s", userID)
+		return ErrTokenNotFound
 	}
 
 	if len(keys) > 1 {
