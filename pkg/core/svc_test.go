@@ -166,7 +166,7 @@ func TestRevokeToken(t *testing.T) {
 			userID:       "user123",
 			existingKeys: []string{},
 			getKeysErr:   nil,
-			expectedErr:  "no API keys found for user user123",
+			expectedErr:  ErrTokenNotFound.Error(),
 		},
 		{
 			name:         "multiple API keys found",

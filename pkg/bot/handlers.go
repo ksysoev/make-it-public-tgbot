@@ -11,12 +11,25 @@ import (
 )
 
 const (
-	welcomeMessage        = "👋 Welcome to Make It Public Bot!\n\nI help you manage API tokens for https://make-it-public.dev - a service that allows you to securely publish services hidden behind NAT.\n\nUse /help to see available commands."
-	helpMessage           = "Available Commands:\n\n/start - Show welcome message\n/help - Display this help message\n/new_token - Generate a new API token\n\nAbout Make It Public:\nMake It Public allows you to securely expose services that are behind NAT or firewalls to the internet."
-	unknownCommandMessage = "❓ Unknown command.\n\nUse /help to see the list of available commands."
-	tokenExistsMessage    = "⚠️ You already have an active API token. You can create a new one after your current token expires."
-	notCommandMessage     = "I can only respond to commands. Try /help to see what I can do."
-	tokenRevokedMessage   = "🔒 Your API token has been successfully revoked.\n\nYou can create a new one using /new_token command."
+	welcomeMessage = `👋 Welcome to Make It Public Bot!
+
+I help you manage API tokens for https://make-it-public.dev - a service that allows you to securely publish services hidden behind NAT.
+
+Use /help to see available commands.`
+	helpMessage = `Available Commands:
+
+/start - Show welcome message
+/help - Display this help message
+/new_token - Generate a new API token
+/revoke_token - Revoke your current API token
+
+About Make It Public:
+Make It Public allows you to securely expose services that are behind NAT or firewalls to the internet.`
+	unknownCommandMessage  = "❓ Unknown command.\n\nUse /help to see the list of available commands."
+	tokenExistsMessage     = "⚠️ You already have an active API token. You can create a new one after your current token expires."
+	notCommandMessage      = "I can only respond to commands. Try /help to see what I can do."
+	tokenRevokedMessage    = "🔒 Your API token has been successfully revoked.\n\nYou can create a new one using /new_token command."
+	noTokenToRevokeMessage = "❌ You don't have an active API token to revoke.\n\nUse /new_token to create one."
 )
 
 // Handler defines the interface for processing and responding to incoming messages in a Telegram bot context.
@@ -71,12 +84,15 @@ func (s *Service) handleCommand(ctx context.Context, msg *tgbotapi.Message) (tgb
 		case err != nil:
 			return tgbotapi.MessageConfig{}, fmt.Errorf("failed to create token: %w", err)
 		default:
-			message := tgbotapi.NewMessage(msg.Chat.ID, resp.Message)
-
-			return message, nil
+			return tgbotapi.NewMessage(msg.Chat.ID, resp.Message), nil
 		}
 	case "revoke_token":
-		if err := s.tokenSvc.RevokeToken(ctx, fmt.Sprintf("%d", msg.From.ID)); err != nil {
+		err := s.tokenSvc.RevokeToken(ctx, fmt.Sprintf("%d", msg.From.ID))
+
+		switch {
+		case errors.Is(err, core.ErrTokenNotFound):
+			return tgbotapi.NewMessage(msg.Chat.ID, noTokenToRevokeMessage), nil
+		case err != nil:
 			return tgbotapi.MessageConfig{}, fmt.Errorf("failed to revoke token: %w", err)
 		}
 

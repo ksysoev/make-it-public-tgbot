@@ -109,6 +109,17 @@ func TestHandleCommand(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:    "revoke_token command - no token to revoke",
+			command: "revoke_token",
+			setupMocks: func(mockTokenSvc *MockTokenService) {
+				mockTokenSvc.EXPECT().RevokeToken(mock.Anything, "456").Return(core.ErrTokenNotFound)
+			},
+			chatID:   123,
+			userID:   456,
+			wantText: noTokenToRevokeMessage,
+			wantErr:  false,
+		},
+		{
 			name:    "revoke_token command - error",
 			command: "revoke_token",
 			setupMocks: func(mockTokenSvc *MockTokenService) {

@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	ttlOffset = 60 * time.Second
+	ttlOffset    = 60 * time.Second
+	apiKeyPrefix = "USER_KEYS::"
 )
 
 type Config struct {
@@ -45,7 +46,7 @@ func (u *User) Close() error {
 
 // AddAPIKey adds an API key with an expiration time to the user's Redis store. Returns an error if the operation fails.
 func (u *User) AddAPIKey(ctx context.Context, userID string, apiKeyID string, expiresIn time.Duration) error {
-	redisKey := u.keyPrefix + userID
+	redisKey := u.keyPrefix + apiKeyPrefix + userID
 
 	_, err := u.db.ZAdd(ctx, redisKey, redis.Z{
 		Score:  float64(time.Now().Add(expiresIn - ttlOffset).Unix()),
@@ -64,7 +65,7 @@ func (u *User) AddAPIKey(ctx context.Context, userID string, apiKeyID string, ex
 
 // GetAPIKeys retrieves all API keys for a user from the Redis store. Returns a slice of API keys and an error if the operation fails.
 func (u *User) GetAPIKeys(ctx context.Context, userID string) ([]string, error) {
-	redisKey := u.keyPrefix + userID
+	redisKey := u.keyPrefix + apiKeyPrefix + userID
 
 	// clean up expired keys
 	now := time.Now().Unix()
@@ -87,7 +88,7 @@ func (u *User) GetAPIKeys(ctx context.Context, userID string) ([]string, error) 
 
 // RevokeToken removes the specified API key for a user from the Redis store. Returns an error if the operation fails.
 func (u *User) RevokeToken(ctx context.Context, userID string, apiKeyID string) error {
-	redisKey := u.keyPrefix + userID
+	redisKey := u.keyPrefix + apiKeyPrefix + userID
 
 	_, err := u.db.ZRem(ctx, redisKey, apiKeyID).Result()
 	if err != nil {
