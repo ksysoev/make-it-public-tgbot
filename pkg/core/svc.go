@@ -12,6 +12,10 @@ const (
 	tokenCreatedMessage = "🔑 Your New API Token\n\n%s\n\n⏱ Valid until: %s\n\nKeep this token secure and don't share it with others."
 )
 
+const (
+	StateTokenExists conv.State = "tokenExists"
+)
+
 var (
 	ErrMaxTokensExceeded = fmt.Errorf("maximum tokens exceeded")
 	ErrTokenNotFound     = fmt.Errorf("token not found")
@@ -67,8 +71,11 @@ func (s *Service) CreateToken(ctx context.Context, userID string) (*Response, er
 			}},
 		)
 
-		c.StartQuestions(questions)
-		q, _ := questions.GetQuestion()
+		if err := c.Start(StateTokenExists, questions); err != nil {
+			return nil, fmt.Errorf("failed to start questions: %w", err)
+		}
+
+		q, _ := c.Current()
 
 		if err := s.repo.SaveConversation(ctx, c); err != nil {
 			return nil, fmt.Errorf("failed to save conversation: %w", err)
