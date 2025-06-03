@@ -3,6 +3,7 @@ package bot
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -65,12 +66,10 @@ func TestHandleCommand(t *testing.T) {
 			name:    "new_token command - success",
 			command: "new_token",
 			setupMocks: func(mockTokenSvc *MockTokenService) {
-				token := &core.APIToken{
-					KeyID:     "key123",
-					Token:     "token123",
-					ExpiresIn: 3600,
+				response := &core.Response{
+					Message: "🔑 Your New API Token\n\ntoken123\n\n⏱ Valid until: 2023-01-01 12:00:00\n\nKeep this token secure and don't share it with others.",
 				}
-				mockTokenSvc.EXPECT().CreateToken(mock.Anything, "456").Return(token, nil)
+				mockTokenSvc.EXPECT().CreateToken(mock.Anything, "456").Return(response, nil)
 			},
 			chatID:  123,
 			userID:  456,
@@ -80,11 +79,15 @@ func TestHandleCommand(t *testing.T) {
 			name:    "new_token command - token exists",
 			command: "new_token",
 			setupMocks: func(mockTokenSvc *MockTokenService) {
-				mockTokenSvc.EXPECT().CreateToken(mock.Anything, "456").Return(nil, core.ErrMaxTokensExceeded)
+				response := &core.Response{
+					Message: "You already have an active API token. Do you want to regenerate it?",
+					Answers: []string{"Yes", "No"},
+				}
+				mockTokenSvc.EXPECT().CreateToken(mock.Anything, "456").Return(response, nil)
 			},
 			chatID:   123,
 			userID:   456,
-			wantText: tokenExistsMessage,
+			wantText: "You already have an active API token. Do you want to regenerate it?",
 			wantErr:  false,
 		},
 		{
@@ -312,12 +315,14 @@ func TestHandleCommandTimeFormat(t *testing.T) {
 	}
 
 	// Setup mock for CreateToken
-	token := &core.APIToken{
-		KeyID:     "key123",
-		Token:     "token123",
-		ExpiresIn: 3600, // 1 hour
+	// Calculate expected expiration time (approximately 1 hour from now)
+	expectedTime := time.Now().Add(time.Hour)
+	formattedTime := expectedTime.Format(time.DateTime)
+
+	response := &core.Response{
+		Message: fmt.Sprintf("🔑 Your New API Token\n\ntoken123\n\n⏱ Valid until: %s\n\nKeep this token secure and don't share it with others.", formattedTime),
 	}
-	mockTokenSvc.EXPECT().CreateToken(mock.Anything, "456").Return(token, nil)
+	mockTokenSvc.EXPECT().CreateToken(mock.Anything, "456").Return(response, nil)
 
 	// Create a message with the new_token command
 	msg := &tgbotapi.Message{
@@ -343,9 +348,6 @@ func TestHandleCommandTimeFormat(t *testing.T) {
 
 	// Check that the response contains the token and expiration time
 	assert.Contains(t, resp.Text, "token123")
-
-	// Calculate expected expiration time (approximately 1 hour from now)
-	expectedTime := time.Now().Add(time.Hour)
 
 	// Check that the response contains the year, month, and day
 	assert.Contains(t, resp.Text, expectedTime.Format("2006"))

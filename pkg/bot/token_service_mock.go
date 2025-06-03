@@ -25,23 +25,23 @@ func (_m *MockTokenService) EXPECT() *MockTokenService_Expecter {
 }
 
 // CreateToken provides a mock function with given fields: ctx, userID
-func (_m *MockTokenService) CreateToken(ctx context.Context, userID string) (*core.APIToken, error) {
+func (_m *MockTokenService) CreateToken(ctx context.Context, userID string) (*core.Response, error) {
 	ret := _m.Called(ctx, userID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateToken")
 	}
 
-	var r0 *core.APIToken
+	var r0 *core.Response
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (*core.APIToken, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*core.Response, error)); ok {
 		return rf(ctx, userID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) *core.APIToken); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) *core.Response); ok {
 		r0 = rf(ctx, userID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*core.APIToken)
+			r0 = ret.Get(0).(*core.Response)
 		}
 	}
 
@@ -73,12 +73,12 @@ func (_c *MockTokenService_CreateToken_Call) Run(run func(ctx context.Context, u
 	return _c
 }
 
-func (_c *MockTokenService_CreateToken_Call) Return(_a0 *core.APIToken, _a1 error) *MockTokenService_CreateToken_Call {
+func (_c *MockTokenService_CreateToken_Call) Return(_a0 *core.Response, _a1 error) *MockTokenService_CreateToken_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockTokenService_CreateToken_Call) RunAndReturn(run func(context.Context, string) (*core.APIToken, error)) *MockTokenService_CreateToken_Call {
+func (_c *MockTokenService_CreateToken_Call) RunAndReturn(run func(context.Context, string) (*core.Response, error)) *MockTokenService_CreateToken_Call {
 	_c.Call.Return(run)
 	return _c
 }

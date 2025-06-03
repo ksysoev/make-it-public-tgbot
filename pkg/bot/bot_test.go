@@ -113,12 +113,10 @@ func TestHandle(t *testing.T) {
 				},
 			},
 			setupMocks: func() {
-				token := &core.APIToken{
-					KeyID:     "key123",
-					Token:     "token123",
-					ExpiresIn: 3600,
+				response := &core.Response{
+					Message: "🔑 Your New API Token\n\ntoken123\n\n⏱ Valid until: 2023-01-01 12:00:00\n\nKeep this token secure and don't share it with others.",
 				}
-				mockTokenSvc.EXPECT().CreateToken(mock.Anything, "456").Return(token, nil)
+				mockTokenSvc.EXPECT().CreateToken(mock.Anything, "456").Return(response, nil)
 			},
 			wantErr: false,
 		},
@@ -141,9 +139,13 @@ func TestHandle(t *testing.T) {
 				},
 			},
 			setupMocks: func() {
-				mockTokenSvc.EXPECT().CreateToken(mock.Anything, "456").Return(nil, core.ErrMaxTokensExceeded)
+				response := &core.Response{
+					Message: "You already have an active API token. Do you want to regenerate it?",
+					Answers: []string{"Yes", "No"},
+				}
+				mockTokenSvc.EXPECT().CreateToken(mock.Anything, "456").Return(response, nil)
 			},
-			wantText: tokenExistsMessage,
+			wantText: "You already have an active API token. Do you want to regenerate it?",
 			wantErr:  false,
 		},
 		{
