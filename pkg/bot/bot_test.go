@@ -197,10 +197,54 @@ func TestHandle(t *testing.T) {
 				Chat: &tgbotapi.Chat{
 					ID: 123,
 				},
+				From: &tgbotapi.User{
+					ID: 456,
+				},
 			},
-			setupMocks: func() {},
-			wantText:   notCommandMessage,
-			wantErr:    false,
+			setupMocks: func() {
+				mockTokenSvc.EXPECT().HandleMessage(mock.Anything, "456", "hello").Return(&core.Response{
+					Message: notCommandMessage,
+				}, nil)
+			},
+			wantText: notCommandMessage,
+			wantErr:  false,
+		},
+		{
+			name: "text message handling",
+			message: &tgbotapi.Message{
+				Text: "some text message",
+				Chat: &tgbotapi.Chat{
+					ID: 123,
+				},
+				From: &tgbotapi.User{
+					ID: 456,
+				},
+			},
+			setupMocks: func() {
+				response := &core.Response{
+					Message: "Response to text message",
+					Answers: []string{"Option1", "Option2"},
+				}
+				mockTokenSvc.EXPECT().HandleMessage(mock.Anything, "456", "some text message").Return(response, nil)
+			},
+			wantText: "Response to text message",
+			wantErr:  false,
+		},
+		{
+			name: "text message handling - error",
+			message: &tgbotapi.Message{
+				Text: "some text message",
+				Chat: &tgbotapi.Chat{
+					ID: 123,
+				},
+				From: &tgbotapi.User{
+					ID: 456,
+				},
+			},
+			setupMocks: func() {
+				mockTokenSvc.EXPECT().HandleMessage(mock.Anything, "456", "some text message").Return(nil, errors.New("handling error"))
+			},
+			wantErr: true,
 		},
 	}
 
@@ -265,6 +309,9 @@ func TestProcessUpdate(t *testing.T) {
 					},
 					Chat: &tgbotapi.Chat{
 						ID: 123,
+					},
+					From: &tgbotapi.User{
+						ID: 456,
 					},
 				},
 			},

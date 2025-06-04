@@ -245,7 +245,9 @@ func TestHandleMessage(t *testing.T) {
 				},
 			},
 			setupMocks: func(mockTokenSvc *MockTokenService) {
-				// No mocks needed for non-command message
+				mockTokenSvc.EXPECT().HandleMessage(mock.Anything, "456", "hello").Return(&core.Response{
+					Message: notCommandMessage,
+				}, nil)
 			},
 			wantText: notCommandMessage,
 			wantErr:  false,
