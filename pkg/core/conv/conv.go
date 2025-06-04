@@ -33,6 +33,7 @@ type Conversation struct {
 	Questions Questions `json:"Questions"`
 }
 
+// New creates a new Conversation instance with the given ID and sets its state to StateIdle.
 func New(id string) *Conversation {
 	return &Conversation{
 		ID:    id,
@@ -40,18 +41,17 @@ func New(id string) *Conversation {
 	}
 }
 
-// StartQuestions initializes a series of questions for the conversation, updating its state and storing the questions provided.
-// Returns an error if the conversation is not in the idle state or if an invalid state is supplied.
-func (c *Conversation) Start(kind State, questions Questions) error {
+// Start initializes the conversation with a new state and a set of questions, returning an error if the state is invalid.
+func (c *Conversation) Start(newState State, questions Questions) error {
 	if c.State != StateIdle {
 		return errors.New("conversation is not in chat state")
 	}
 
-	if kind == StateIdle || kind == StateComplete {
+	if newState == StateIdle || newState == StateComplete {
 		panic("invalid state for questions, canot use StateIdle or StateComplete")
 	}
 
-	c.State = kind
+	c.State = newState
 	c.Questions = questions
 
 	return nil

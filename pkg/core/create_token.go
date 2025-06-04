@@ -28,7 +28,6 @@ func (s *Service) CreateToken(ctx context.Context, userID string) (*Response, er
 		c := conv.New(userID)
 
 		questions := conv.NewQuestions(
-			"tokenExists",
 			[]conv.Question{{
 				Text:    "You already have an active API token. Do you want to regenerate it?",
 				Answers: []string{"Yes", "No"},

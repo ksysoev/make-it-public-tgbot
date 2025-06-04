@@ -10,12 +10,11 @@ var (
 )
 
 type Questions struct {
-	Kind     string           `json:"kind"`
 	QAPairs  []QuestionAnswer `json:"qa_pairs"`
 	Position int              `json:"position"`
 }
 
-func NewQuestions(kind string, questions []Question) Questions {
+func NewQuestions(questions []Question) Questions {
 	qaPairs := make([]QuestionAnswer, len(questions))
 	for i, q := range questions {
 		qaPairs[i] = QuestionAnswer{
@@ -25,7 +24,6 @@ func NewQuestions(kind string, questions []Question) Questions {
 	}
 
 	return Questions{
-		Kind:     kind,
 		QAPairs:  qaPairs,
 		Position: 0,
 	}

@@ -151,7 +151,7 @@ func TestCreateToken(t *testing.T) {
 				// Create a matcher function that validates the conversation object
 				repo.On("SaveConversation", mock.Anything, mock.MatchedBy(func(c *conv.Conversation) bool {
 					// Verify that the conversation has the correct user ID and state
-					return c.ID == tt.userID && c.State == "tokenExists" && c.Questions != nil
+					return c.ID == tt.userID && c.State == "tokenExists"
 				})).Return(tt.saveConvErr)
 			}
 
