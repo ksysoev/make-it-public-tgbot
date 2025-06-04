@@ -8,14 +8,6 @@ import (
 	"github.com/ksysoev/make-it-public-tgbot/pkg/core/conv"
 )
 
-const (
-	tokenCreatedMessage = "🔑 Your New API Token\n\n%s\n\n⏱ Valid until: %s\n\nKeep this token secure and don't share it with others."
-)
-
-const (
-	StateTokenExists conv.State = "tokenExists"
-)
-
 var (
 	ErrMaxTokensExceeded = fmt.Errorf("maximum tokens exceeded")
 	ErrTokenNotFound     = fmt.Errorf("token not found")
@@ -52,32 +44,26 @@ func New(repo UserRepo, prov MITProv) *Service {
 	}
 }
 
-// CreateToken generates a new API token for the specified user, storing it in the repository, if token limits are not exceeded.
-// Returns an error if the token limit is reached, fails to generate the token, or fails to save the token in the repository.
-func (s *Service) CreateToken(ctx context.Context, userID string) (*Response, error) {
-	keys, err := s.repo.GetAPIKeys(ctx, userID)
+func (s *Service) HandleMessage(ctx context.Context, userID string, message string) (*Response, error) {
+	cnv, err := s.repo.GetConversation(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get API keys: %w", err)
+		return nil, fmt.Errorf("failed to get conversation: %w", err)
 	}
 
-	if len(keys) > 0 {
-		c := conv.New(userID)
+	startState := cnv.State
 
-		questions := conv.NewQuestions(
-			"tokenExists",
-			[]conv.Question{{
-				Text:    "You already have an active API token. Do you want to regenerate it?",
-				Answers: []string{"Yes", "No"},
-			}},
-		)
+	err = cnv.Submit(message)
+	if err != nil {
+		return nil, fmt.Errorf("failed to submit message: %w", err)
 
-		if err := c.Start(StateTokenExists, questions); err != nil {
-			return nil, fmt.Errorf("failed to start questions: %w", err)
+
+	if cnv.State != conv.StateComplete {
+		q, err := cnv.Current()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get current question: %w", err)
 		}
 
-		q, _ := c.Current()
-
-		if err := s.repo.SaveConversation(ctx, c); err != nil {
+		if err := s.repo.SaveConversation(ctx, cnv); err != nil {
 			return nil, fmt.Errorf("failed to save conversation: %w", err)
 		}
 
@@ -87,45 +73,11 @@ func (s *Service) CreateToken(ctx context.Context, userID string) (*Response, er
 		}, nil
 	}
 
-	token, err := s.prov.GenerateToken()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate token: %w", err)
+	switch startState {
+	case StateTokenExists:
+		s.
 	}
 
-	if err = s.repo.AddAPIKey(ctx, userID, token.KeyID, token.ExpiresIn); err != nil {
-		return nil, fmt.Errorf("failed to add API key: %w", err)
-	}
 
-	expiresAt := time.Now().Add(token.ExpiresIn).Format(time.DateTime)
-	return &Response{
-		Message: fmt.Sprintf(tokenCreatedMessage, token.Token, expiresAt),
-	}, nil
-}
 
-// RevokeToken revokes a user's single existing API token, removing it from both the provider and the repository.
-// Returns an error if multiple or no tokens exist, or if any step in the revocation process fails.
-func (s *Service) RevokeToken(ctx context.Context, userID string) error {
-	keys, err := s.repo.GetAPIKeys(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("failed to get API keys: %w", err)
-	}
-
-	if len(keys) == 0 {
-		return ErrTokenNotFound
-	}
-
-	if len(keys) > 1 {
-		return fmt.Errorf("multiple API keys found for user %s, cannot revoke", userID)
-	}
-
-	keyID := keys[0]
-	if err := s.prov.RevokeToken(keyID); err != nil {
-		return fmt.Errorf("failed to revoke token: %w", err)
-	}
-
-	if err := s.repo.RevokeToken(ctx, userID, keyID); err != nil {
-		return fmt.Errorf("failed to remove API key from repository: %w", err)
-	}
-
-	return nil
 }
