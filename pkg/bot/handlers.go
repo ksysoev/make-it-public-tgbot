@@ -57,6 +57,7 @@ func (s *Service) setupHandler() Handler {
 	return h
 }
 
+// Handle processes incoming telegram messages, handles commands, text messages, and generates appropriate responses.
 func (s *Service) Handle(ctx context.Context, msg *tgbotapi.Message) (tgbotapi.MessageConfig, error) {
 	if msg.Command() != "" {
 		resp, err := s.handleCommand(ctx, msg)
@@ -67,9 +68,32 @@ func (s *Service) Handle(ctx context.Context, msg *tgbotapi.Message) (tgbotapi.M
 		return resp, nil
 	}
 
-	return tgbotapi.NewMessage(msg.Chat.ID, notCommandMessage), nil
+	if msg.Text == "" {
+		return tgbotapi.NewMessage(msg.Chat.ID, notCommandMessage), nil
+	}
+
+	r, err := s.tokenSvc.HandleMessage(ctx, fmt.Sprintf("%d", msg.From.ID), msg.Text)
+	if err != nil {
+		return tgbotapi.MessageConfig{}, fmt.Errorf("failed to handle text message: %w", err)
+	}
+
+	resp := tgbotapi.NewMessage(msg.Chat.ID, r.Message)
+
+	answers := make([]tgbotapi.InlineKeyboardButton, len(r.Answers))
+	for _, answer := range r.Answers {
+		answers = append(answers, tgbotapi.NewInlineKeyboardButtonData(answer, answer))
+	}
+
+	if len(answers) > 0 {
+		resp.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(answers...),
+		)
+	}
+
+	return resp, nil
 }
 
+// handleCommand handles Telegram command messages and generates an appropriate response based on the command received.
 func (s *Service) handleCommand(ctx context.Context, msg *tgbotapi.Message) (tgbotapi.MessageConfig, error) {
 	switch msg.Command() {
 	case "start":
