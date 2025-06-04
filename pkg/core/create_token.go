@@ -66,6 +66,21 @@ func (s *Service) CreateToken(ctx context.Context, userID string) (*Response, er
 	}, nil
 }
 
-func (s *Service) handleTokenExistsAnswers(ctx context.Context, userID string, answers []conv.QuestionAnswer) (*Response, error) {
-	return nil, fmt.Errorf("handleTokenExistsAnswers not implemented yet")
+// handleTokenExistsResult processes the result of a "token exists" question and takes appropriate action based on the answer.
+func (s *Service) handleTokenExistsResult(ctx context.Context, userID string, answers []conv.QuestionAnswer) (*Response, error) {
+	if len(answers) != 1 {
+		return nil, fmt.Errorf("expected exactly one answer for tokenExists question, got %d", len(answers))
+	}
+
+	if answers[0].Answer == "No" {
+		return &Response{
+			Message: "No changes made. You can continue using your existing API token.",
+		}, nil
+	}
+
+	if err := s.RevokeToken(ctx, userID); err != nil {
+		return nil, fmt.Errorf("failed to revoke existing token: %w", err)
+	}
+
+	return s.CreateToken(ctx, userID)
 }

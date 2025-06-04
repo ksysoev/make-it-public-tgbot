@@ -2,6 +2,11 @@ package conv
 
 import (
 	"errors"
+	"fmt"
+)
+
+var (
+	ErrIsNotComplete = errors.New("conversation is not complete")
 )
 
 type State string
@@ -80,18 +85,19 @@ func (c *Conversation) Submit(answer string) error {
 }
 
 // Results retrieves the completed question-answer pairs of a conversation if it is in the complete state, returning an error otherwise.
-func (c *Conversation) Results() ([]QuestionAnswer, error) {
+func (c *Conversation) Results() (State, []QuestionAnswer, error) {
 	if c.State != StateComplete {
-		return nil, errors.New("conversation is not in complete state")
+		return "", nil, ErrIsNotComplete
 	}
 
 	r, err := c.Questions.GetResults()
 
 	if err != nil {
-		return nil, err
+		return "", nil, fmt.Errorf("failed to get question results: %w", err)
 	}
 
+	curState := c.State
 	c.State = StateIdle
 
-	return r, nil
+	return curState, r, nil
 }

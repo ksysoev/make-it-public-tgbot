@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -44,20 +45,21 @@ func New(repo UserRepo, prov MITProv) *Service {
 	}
 }
 
+// HandleMessage processes an incoming user message within a conversation context and returns a response or an error.
 func (s *Service) HandleMessage(ctx context.Context, userID string, message string) (*Response, error) {
 	cnv, err := s.repo.GetConversation(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get conversation: %w", err)
 	}
 
-	startState := cnv.State
-
-	err = cnv.Submit(message)
-	if err != nil {
+	if err := cnv.Submit(message); err != nil {
 		return nil, fmt.Errorf("failed to submit message: %w", err)
+	}
 
+	state, res, err := cnv.Results()
 
-	if cnv.State != conv.StateComplete {
+	switch {
+	case errors.Is(err, conv.ErrIsNotComplete):
 		q, err := cnv.Current()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get current question: %w", err)
@@ -71,13 +73,18 @@ func (s *Service) HandleMessage(ctx context.Context, userID string, message stri
 			Message: q.Text,
 			Answers: q.Answers,
 		}, nil
+	case err != nil:
+		return nil, fmt.Errorf("failed to get results: %w", err)
 	}
 
-	switch startState {
+	if err := s.repo.SaveConversation(ctx, cnv); err != nil {
+		return nil, fmt.Errorf("failed to save conversation: %w", err)
+	}
+
+	switch state {
 	case StateTokenExists:
-		s.
+		return s.handleTokenExistsResult(ctx, userID, res)
+	default:
+		return nil, fmt.Errorf("unsupported conversation state: %s", state)
 	}
-
-
-
 }
