@@ -79,7 +79,7 @@ func (s *Service) Handle(ctx context.Context, msg *tgbotapi.Message) (tgbotapi.M
 
 	resp := tgbotapi.NewMessage(msg.Chat.ID, r.Message)
 
-	answers := make([]tgbotapi.InlineKeyboardButton, len(r.Answers))
+	answers := []tgbotapi.InlineKeyboardButton{}
 	for _, answer := range r.Answers {
 		answers = append(answers, tgbotapi.NewInlineKeyboardButtonData(answer, answer))
 	}
