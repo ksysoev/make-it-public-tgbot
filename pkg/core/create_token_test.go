@@ -10,6 +10,7 @@ import (
 	"github.com/ksysoev/make-it-public-tgbot/pkg/core/conv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCreateToken(t *testing.T) {
@@ -162,6 +163,163 @@ func TestCreateToken(t *testing.T) {
 				} else {
 					assert.Nil(t, resp)
 				}
+			}
+
+			repo.AssertExpectations(t)
+			prov.AssertExpectations(t)
+		})
+	}
+}
+
+func TestHandleTokenExistsResult(t *testing.T) {
+	tests := []struct {
+		name            string
+		userID          string
+		answers         []conv.QuestionAnswer
+		revokeErr       error
+		createTokenResp *Response
+		createTokenErr  error
+		expectedResp    *Response
+		expectedErr     string
+	}{
+		{
+			name:   "answer is No",
+			userID: "user123",
+			answers: []conv.QuestionAnswer{
+				{
+					Question: conv.Question{
+						Text:    "You already have an active API token. Do you want to regenerate it?",
+						Answers: []string{"Yes", "No"},
+					},
+					Answer: "No",
+				},
+			},
+			expectedResp: &Response{
+				Message: "No changes made. You can continue using your existing API token.",
+			},
+		},
+		{
+			name:   "answer is Yes - success",
+			userID: "user123",
+			answers: []conv.QuestionAnswer{
+				{
+					Question: conv.Question{
+						Text:    "You already have an active API token. Do you want to regenerate it?",
+						Answers: []string{"Yes", "No"},
+					},
+					Answer: "Yes",
+				},
+			},
+			createTokenResp: &Response{
+				Message: fmt.Sprintf(tokenCreatedMessage, "new-token", time.Now().Add(time.Hour).Format(time.DateTime)),
+			},
+			expectedResp: &Response{
+				Message: fmt.Sprintf(tokenCreatedMessage, "new-token", time.Now().Add(time.Hour).Format(time.DateTime)),
+			},
+		},
+		{
+			name:   "answer is Yes - revoke error",
+			userID: "user123",
+			answers: []conv.QuestionAnswer{
+				{
+					Question: conv.Question{
+						Text:    "You already have an active API token. Do you want to regenerate it?",
+						Answers: []string{"Yes", "No"},
+					},
+					Answer: "Yes",
+				},
+			},
+			revokeErr:   errors.New("revoke error"),
+			expectedErr: "failed to revoke existing token: failed to remove API key from repository: revoke error",
+		},
+		{
+			name:   "answer is Yes - create token error",
+			userID: "user123",
+			answers: []conv.QuestionAnswer{
+				{
+					Question: conv.Question{
+						Text:    "You already have an active API token. Do you want to regenerate it?",
+						Answers: []string{"Yes", "No"},
+					},
+					Answer: "Yes",
+				},
+			},
+			createTokenErr: errors.New("create token error"),
+			expectedErr:    "failed to generate token: create token error",
+		},
+		{
+			name:   "invalid number of answers",
+			userID: "user123",
+			answers: []conv.QuestionAnswer{
+				{
+					Question: conv.Question{
+						Text:    "Question 1",
+						Answers: []string{"Answer 1", "Answer 2"},
+					},
+					Answer: "Answer 1",
+				},
+				{
+					Question: conv.Question{
+						Text:    "Question 2",
+						Answers: []string{"Answer 1", "Answer 2"},
+					},
+					Answer: "Answer 2",
+				},
+			},
+			expectedErr: "expected exactly one answer for tokenExists question, got 2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := NewMockUserRepo(t)
+			prov := NewMockMITProv(t)
+
+			// Create a partial mock of Service to mock CreateToken
+			svc := New(repo, prov)
+
+			// Setup mocks for RevokeToken if needed
+			if tt.answers[0].Answer == "Yes" {
+				// First GetAPIKeys call is to check if token exists before revoking
+				repo.On("GetAPIKeys", mock.Anything, tt.userID).Return([]string{"existing-key"}, nil).Once()
+
+				// Mock RevokeToken
+				repo.On("RevokeToken", mock.Anything, tt.userID, "existing-key").Return(tt.revokeErr)
+
+				// Mock the provider's RevokeToken method
+				prov.On("RevokeToken", "existing-key").Return(nil)
+
+				if tt.revokeErr == nil {
+					// If RevokeToken succeeds, we need to mock CreateToken
+					// Second GetAPIKeys call is after token is revoked, should return empty list
+					repo.On("GetAPIKeys", mock.Anything, tt.userID).Return([]string{}, nil).Once()
+
+					if tt.createTokenErr == nil {
+						// Mock successful token generation
+						prov.On("GenerateToken").Return(&APIToken{
+							KeyID:     "new-key",
+							Token:     "new-token",
+							ExpiresIn: time.Hour,
+						}, nil)
+
+						repo.On("AddAPIKey", mock.Anything, tt.userID, "new-key", time.Hour).Return(nil)
+					} else {
+						// Mock failed token generation
+						prov.On("GenerateToken").Return(nil, tt.createTokenErr)
+					}
+				}
+			}
+
+			resp, err := svc.handleTokenExistsResult(context.Background(), tt.userID, tt.answers)
+
+			if tt.expectedErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedErr)
+				assert.Nil(t, resp)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, tt.expectedResp.Message, resp.Message)
 			}
 
 			repo.AssertExpectations(t)
