@@ -19,9 +19,9 @@ func (_m *MockMITProv) EXPECT() *MockMITProv_Expecter {
 	return &MockMITProv_Expecter{mock: &_m.Mock}
 }
 
-// GenerateToken provides a mock function with no fields
-func (_m *MockMITProv) GenerateToken() (*APIToken, error) {
-	ret := _m.Called()
+// GenerateToken provides a mock function with given fields: ttl
+func (_m *MockMITProv) GenerateToken(ttl int64) (*APIToken, error) {
+	ret := _m.Called(ttl)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GenerateToken")
@@ -29,19 +29,19 @@ func (_m *MockMITProv) GenerateToken() (*APIToken, error) {
 
 	var r0 *APIToken
 	var r1 error
-	if rf, ok := ret.Get(0).(func() (*APIToken, error)); ok {
-		return rf()
+	if rf, ok := ret.Get(0).(func(int64) (*APIToken, error)); ok {
+		return rf(ttl)
 	}
-	if rf, ok := ret.Get(0).(func() *APIToken); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(int64) *APIToken); ok {
+		r0 = rf(ttl)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*APIToken)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(int64) error); ok {
+		r1 = rf(ttl)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -55,13 +55,14 @@ type MockMITProv_GenerateToken_Call struct {
 }
 
 // GenerateToken is a helper method to define mock.On call
-func (_e *MockMITProv_Expecter) GenerateToken() *MockMITProv_GenerateToken_Call {
-	return &MockMITProv_GenerateToken_Call{Call: _e.mock.On("GenerateToken")}
+//   - ttl int64
+func (_e *MockMITProv_Expecter) GenerateToken(ttl interface{}) *MockMITProv_GenerateToken_Call {
+	return &MockMITProv_GenerateToken_Call{Call: _e.mock.On("GenerateToken", ttl)}
 }
 
-func (_c *MockMITProv_GenerateToken_Call) Run(run func()) *MockMITProv_GenerateToken_Call {
+func (_c *MockMITProv_GenerateToken_Call) Run(run func(ttl int64)) *MockMITProv_GenerateToken_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(int64))
 	})
 	return _c
 }
@@ -71,7 +72,7 @@ func (_c *MockMITProv_GenerateToken_Call) Return(_a0 *APIToken, _a1 error) *Mock
 	return _c
 }
 
-func (_c *MockMITProv_GenerateToken_Call) RunAndReturn(run func() (*APIToken, error)) *MockMITProv_GenerateToken_Call {
+func (_c *MockMITProv_GenerateToken_Call) RunAndReturn(run func(int64) (*APIToken, error)) *MockMITProv_GenerateToken_Call {
 	_c.Call.Return(run)
 	return _c
 }
