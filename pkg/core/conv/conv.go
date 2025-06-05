@@ -48,7 +48,7 @@ func (c *Conversation) Start(newState State, questions Questions) error {
 	}
 
 	if newState == StateIdle || newState == StateComplete {
-		panic("invalid state for questions, canot use StateIdle or StateComplete")
+		panic("invalid state for questions, cannot use StateIdle or StateComplete")
 	}
 
 	c.State = newState
