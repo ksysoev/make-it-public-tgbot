@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/ksysoev/make-it-public-tgbot/pkg/bot/middleware"
@@ -59,6 +60,7 @@ func (s *Service) setupHandler() Handler {
 
 // Handle processes incoming telegram messages, handles commands, text messages, and generates appropriate responses.
 func (s *Service) Handle(ctx context.Context, msg *tgbotapi.Message) (tgbotapi.MessageConfig, error) {
+	slog.DebugContext(ctx, "Handling message", slog.Any("message", msg))
 	if msg.Command() != "" {
 		resp, err := s.handleCommand(ctx, msg)
 		if err != nil {
@@ -72,56 +74,43 @@ func (s *Service) Handle(ctx context.Context, msg *tgbotapi.Message) (tgbotapi.M
 		return tgbotapi.NewMessage(msg.Chat.ID, notCommandMessage), nil
 	}
 
-	r, err := s.tokenSvc.HandleMessage(ctx, fmt.Sprintf("%d", msg.From.ID), msg.Text)
+	resp, err := s.tokenSvc.HandleMessage(ctx, fmt.Sprintf("%d", msg.From.ID), msg.Text)
 	if err != nil {
 		return tgbotapi.MessageConfig{}, fmt.Errorf("failed to handle text message: %w", err)
 	}
 
-	resp := tgbotapi.NewMessage(msg.Chat.ID, r.Message)
-
-	answers := []tgbotapi.InlineKeyboardButton{}
-	for _, answer := range r.Answers {
-		answers = append(answers, tgbotapi.NewInlineKeyboardButtonData(answer, answer))
-	}
-
-	if len(answers) > 0 {
-		resp.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(answers...),
-		)
-	}
-
-	return resp, nil
+	return newMessage(msg.Chat.ID, resp), nil
 }
 
 // handleCommand handles Telegram command messages and generates an appropriate response based on the command received.
 func (s *Service) handleCommand(ctx context.Context, msg *tgbotapi.Message) (tgbotapi.MessageConfig, error) {
 	switch msg.Command() {
 	case "start":
-		return tgbotapi.NewMessage(msg.Chat.ID, welcomeMessage), nil
+		return newTextMessage(msg.Chat.ID, welcomeMessage), nil
 	case "help":
-		return tgbotapi.NewMessage(msg.Chat.ID, helpMessage), nil
+		return newTextMessage(msg.Chat.ID, helpMessage), nil
 	case "new_token":
 		resp, err := s.tokenSvc.CreateToken(ctx, fmt.Sprintf("%d", msg.From.ID))
 		switch {
 		case errors.Is(err, core.ErrMaxTokensExceeded):
-			return tgbotapi.NewMessage(msg.Chat.ID, tokenExistsMessage), nil
+			return newTextMessage(msg.Chat.ID, tokenExistsMessage), nil
 		case err != nil:
 			return tgbotapi.MessageConfig{}, fmt.Errorf("failed to create token: %w", err)
 		default:
-			return tgbotapi.NewMessage(msg.Chat.ID, resp.Message), nil
+			return newMessage(msg.Chat.ID, resp), nil
 		}
 	case "revoke_token":
 		err := s.tokenSvc.RevokeToken(ctx, fmt.Sprintf("%d", msg.From.ID))
 
 		switch {
 		case errors.Is(err, core.ErrTokenNotFound):
-			return tgbotapi.NewMessage(msg.Chat.ID, noTokenToRevokeMessage), nil
+			return newTextMessage(msg.Chat.ID, noTokenToRevokeMessage), nil
 		case err != nil:
 			return tgbotapi.MessageConfig{}, fmt.Errorf("failed to revoke token: %w", err)
 		}
 
-		return tgbotapi.NewMessage(msg.Chat.ID, tokenRevokedMessage), nil
+		return newTextMessage(msg.Chat.ID, tokenRevokedMessage), nil
 	default:
-		return tgbotapi.NewMessage(msg.Chat.ID, unknownCommandMessage), nil
+		return newTextMessage(msg.Chat.ID, unknownCommandMessage), nil
 	}
 }
