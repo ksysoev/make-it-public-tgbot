@@ -2,15 +2,19 @@ package repo
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
+	"github.com/ksysoev/make-it-public-tgbot/pkg/core/conv"
 	"github.com/redis/go-redis/v9"
 )
 
 const (
-	ttlOffset    = 60 * time.Second
-	apiKeyPrefix = "USER_KEYS::"
+	ttlOffset     = 60 * time.Second
+	apiKeyPrefix  = "USER_KEYS::"
+	convKeyPrefix = "CONV::"
+	convTTL       = 24 * time.Hour // Default TTL for conversations
 )
 
 type Config struct {
@@ -94,4 +98,42 @@ func (u *User) RevokeToken(ctx context.Context, userID string, apiKeyID string) 
 	}
 
 	return nil
+}
+
+// SaveConversation stores a conversation object in the Redis database. Returns an error if the operation fails.
+func (u *User) SaveConversation(ctx context.Context, conversation *conv.Conversation) error {
+	redisKey := u.keyPrefix + convKeyPrefix + conversation.ID
+
+	data, err := json.Marshal(conversation)
+	if err != nil {
+		return fmt.Errorf("failed to encode conversation: %w", err)
+	}
+
+	_, err = u.db.Set(ctx, redisKey, data, convTTL).Result()
+
+	if err != nil {
+		return fmt.Errorf("failed to save conversation: %w", err)
+	}
+
+	return nil
+}
+
+// GetConversation retrieves a conversation by its ID from the Redis store. Returns the conversation or an error if it fails.
+func (u *User) GetConversation(ctx context.Context, conversationID string) (*conv.Conversation, error) {
+	redisKey := u.keyPrefix + convKeyPrefix + conversationID
+
+	data, err := u.db.Get(ctx, redisKey).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return conv.New(conversationID), nil
+		}
+		return nil, fmt.Errorf("failed to get conversation: %w", err)
+	}
+
+	var conversation conv.Conversation
+	if err := json.Unmarshal([]byte(data), &conversation); err != nil {
+		return nil, fmt.Errorf("failed to decode conversation: %w", err)
+	}
+
+	return &conversation, nil
 }

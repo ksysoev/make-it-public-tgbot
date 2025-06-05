@@ -2,8 +2,11 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
+
+	"github.com/ksysoev/make-it-public-tgbot/pkg/core/conv"
 )
 
 var (
@@ -15,11 +18,18 @@ type UserRepo interface {
 	AddAPIKey(ctx context.Context, userID string, apiKeyID string, expiresIn time.Duration) error
 	GetAPIKeys(ctx context.Context, userID string) ([]string, error)
 	RevokeToken(ctx context.Context, userID string, apiKeyID string) error
+	SaveConversation(ctx context.Context, conversation *conv.Conversation) error
+	GetConversation(ctx context.Context, conversationID string) (*conv.Conversation, error)
 }
 
 type MITProv interface {
 	GenerateToken() (*APIToken, error)
 	RevokeToken(keyID string) error
+}
+
+type Response struct {
+	Message string   `json:"message"` // Main response message
+	Answers []string `json:"answers"` // Possible answers for the follow-up question
 }
 
 type Service struct {
@@ -35,54 +45,47 @@ func New(repo UserRepo, prov MITProv) *Service {
 	}
 }
 
-// CreateToken generates a new API token for the specified user, storing it in the repository, if token limits are not exceeded.
-// Returns an error if the token limit is reached, fails to generate the token, or fails to save the token in the repository.
-func (s *Service) CreateToken(ctx context.Context, userID string) (*APIToken, error) {
-	keys, err := s.repo.GetAPIKeys(ctx, userID)
+// HandleMessage processes an incoming user message within a conversation context and returns a response or an error.
+func (s *Service) HandleMessage(ctx context.Context, userID string, message string) (*Response, error) {
+	cnv, err := s.repo.GetConversation(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get API keys: %w", err)
+		return nil, fmt.Errorf("failed to get conversation: %w", err)
 	}
 
-	if len(keys) > 0 {
-		return nil, ErrMaxTokensExceeded
-	}
-
-	token, err := s.prov.GenerateToken()
+	state, err := cnv.Submit(message)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate token: %w", err)
+		return nil, fmt.Errorf("failed to submit message: %w", err)
 	}
 
-	if err = s.repo.AddAPIKey(ctx, userID, token.KeyID, token.ExpiresIn); err != nil {
-		return nil, fmt.Errorf("failed to add API key: %w", err)
+	res, err := cnv.Results()
+
+	switch {
+	case errors.Is(err, conv.ErrIsNotComplete):
+		q, err := cnv.Current()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get current question: %w", err)
+		}
+
+		if err := s.repo.SaveConversation(ctx, cnv); err != nil {
+			return nil, fmt.Errorf("failed to save conversation: %w", err)
+		}
+
+		return &Response{
+			Message: q.Text,
+			Answers: q.Answers,
+		}, nil
+	case err != nil:
+		return nil, fmt.Errorf("failed to get results: %w", err)
 	}
 
-	return token, nil
-}
-
-// RevokeToken revokes a user's single existing API token, removing it from both the provider and the repository.
-// Returns an error if multiple or no tokens exist, or if any step in the revocation process fails.
-func (s *Service) RevokeToken(ctx context.Context, userID string) error {
-	keys, err := s.repo.GetAPIKeys(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("failed to get API keys: %w", err)
+	if err := s.repo.SaveConversation(ctx, cnv); err != nil {
+		return nil, fmt.Errorf("failed to save conversation: %w", err)
 	}
 
-	if len(keys) == 0 {
-		return ErrTokenNotFound
+	switch state {
+	case StateTokenExists:
+		return s.handleTokenExistsResult(ctx, userID, res)
+	default:
+		return nil, fmt.Errorf("unsupported conversation state: %s", state)
 	}
-
-	if len(keys) > 1 {
-		return fmt.Errorf("multiple API keys found for user %s, cannot revoke", userID)
-	}
-
-	keyID := keys[0]
-	if err := s.prov.RevokeToken(keyID); err != nil {
-		return fmt.Errorf("failed to revoke token: %w", err)
-	}
-
-	if err := s.repo.RevokeToken(ctx, userID, keyID); err != nil {
-		return fmt.Errorf("failed to remove API key from repository: %w", err)
-	}
-
-	return nil
 }

@@ -30,8 +30,9 @@ type Config struct {
 }
 
 type TokenService interface {
-	CreateToken(ctx context.Context, userID string) (*core.APIToken, error)
+	CreateToken(ctx context.Context, userID string) (*core.Response, error)
 	RevokeToken(ctx context.Context, userID string) error
+	HandleMessage(ctx context.Context, userID string, message string) (*core.Response, error)
 }
 
 type Service struct {

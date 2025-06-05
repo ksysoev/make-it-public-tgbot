@@ -113,12 +113,10 @@ func TestHandle(t *testing.T) {
 				},
 			},
 			setupMocks: func() {
-				token := &core.APIToken{
-					KeyID:     "key123",
-					Token:     "token123",
-					ExpiresIn: 3600,
+				response := &core.Response{
+					Message: "🔑 Your New API Token\n\ntoken123\n\n⏱ Valid until: 2023-01-01 12:00:00\n\nKeep this token secure and don't share it with others.",
 				}
-				mockTokenSvc.EXPECT().CreateToken(mock.Anything, "456").Return(token, nil)
+				mockTokenSvc.EXPECT().CreateToken(mock.Anything, "456").Return(response, nil)
 			},
 			wantErr: false,
 		},
@@ -141,9 +139,13 @@ func TestHandle(t *testing.T) {
 				},
 			},
 			setupMocks: func() {
-				mockTokenSvc.EXPECT().CreateToken(mock.Anything, "456").Return(nil, core.ErrMaxTokensExceeded)
+				response := &core.Response{
+					Message: "You already have an active API token. Do you want to regenerate it?",
+					Answers: []string{"Yes", "No"},
+				}
+				mockTokenSvc.EXPECT().CreateToken(mock.Anything, "456").Return(response, nil)
 			},
-			wantText: tokenExistsMessage,
+			wantText: "You already have an active API token. Do you want to regenerate it?",
 			wantErr:  false,
 		},
 		{
@@ -195,10 +197,54 @@ func TestHandle(t *testing.T) {
 				Chat: &tgbotapi.Chat{
 					ID: 123,
 				},
+				From: &tgbotapi.User{
+					ID: 456,
+				},
 			},
-			setupMocks: func() {},
-			wantText:   notCommandMessage,
-			wantErr:    false,
+			setupMocks: func() {
+				mockTokenSvc.EXPECT().HandleMessage(mock.Anything, "456", "hello").Return(&core.Response{
+					Message: notCommandMessage,
+				}, nil)
+			},
+			wantText: notCommandMessage,
+			wantErr:  false,
+		},
+		{
+			name: "text message handling",
+			message: &tgbotapi.Message{
+				Text: "some text message",
+				Chat: &tgbotapi.Chat{
+					ID: 123,
+				},
+				From: &tgbotapi.User{
+					ID: 456,
+				},
+			},
+			setupMocks: func() {
+				response := &core.Response{
+					Message: "Response to text message",
+					Answers: []string{"Option1", "Option2"},
+				}
+				mockTokenSvc.EXPECT().HandleMessage(mock.Anything, "456", "some text message").Return(response, nil)
+			},
+			wantText: "Response to text message",
+			wantErr:  false,
+		},
+		{
+			name: "text message handling - error",
+			message: &tgbotapi.Message{
+				Text: "some text message",
+				Chat: &tgbotapi.Chat{
+					ID: 123,
+				},
+				From: &tgbotapi.User{
+					ID: 456,
+				},
+			},
+			setupMocks: func() {
+				mockTokenSvc.EXPECT().HandleMessage(mock.Anything, "456", "some text message").Return(nil, errors.New("handling error"))
+			},
+			wantErr: true,
 		},
 	}
 
@@ -263,6 +309,9 @@ func TestProcessUpdate(t *testing.T) {
 					},
 					Chat: &tgbotapi.Chat{
 						ID: 123,
+					},
+					From: &tgbotapi.User{
+						ID: 456,
 					},
 				},
 			},

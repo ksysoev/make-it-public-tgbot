@@ -25,23 +25,23 @@ func (_m *MockTokenService) EXPECT() *MockTokenService_Expecter {
 }
 
 // CreateToken provides a mock function with given fields: ctx, userID
-func (_m *MockTokenService) CreateToken(ctx context.Context, userID string) (*core.APIToken, error) {
+func (_m *MockTokenService) CreateToken(ctx context.Context, userID string) (*core.Response, error) {
 	ret := _m.Called(ctx, userID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateToken")
 	}
 
-	var r0 *core.APIToken
+	var r0 *core.Response
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (*core.APIToken, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*core.Response, error)); ok {
 		return rf(ctx, userID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) *core.APIToken); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string) *core.Response); ok {
 		r0 = rf(ctx, userID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*core.APIToken)
+			r0 = ret.Get(0).(*core.Response)
 		}
 	}
 
@@ -73,12 +73,72 @@ func (_c *MockTokenService_CreateToken_Call) Run(run func(ctx context.Context, u
 	return _c
 }
 
-func (_c *MockTokenService_CreateToken_Call) Return(_a0 *core.APIToken, _a1 error) *MockTokenService_CreateToken_Call {
+func (_c *MockTokenService_CreateToken_Call) Return(_a0 *core.Response, _a1 error) *MockTokenService_CreateToken_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockTokenService_CreateToken_Call) RunAndReturn(run func(context.Context, string) (*core.APIToken, error)) *MockTokenService_CreateToken_Call {
+func (_c *MockTokenService_CreateToken_Call) RunAndReturn(run func(context.Context, string) (*core.Response, error)) *MockTokenService_CreateToken_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// HandleMessage provides a mock function with given fields: ctx, userID, message
+func (_m *MockTokenService) HandleMessage(ctx context.Context, userID string, message string) (*core.Response, error) {
+	ret := _m.Called(ctx, userID, message)
+
+	if len(ret) == 0 {
+		panic("no return value specified for HandleMessage")
+	}
+
+	var r0 *core.Response
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*core.Response, error)); ok {
+		return rf(ctx, userID, message)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *core.Response); ok {
+		r0 = rf(ctx, userID, message)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*core.Response)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, userID, message)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockTokenService_HandleMessage_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HandleMessage'
+type MockTokenService_HandleMessage_Call struct {
+	*mock.Call
+}
+
+// HandleMessage is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - message string
+func (_e *MockTokenService_Expecter) HandleMessage(ctx interface{}, userID interface{}, message interface{}) *MockTokenService_HandleMessage_Call {
+	return &MockTokenService_HandleMessage_Call{Call: _e.mock.On("HandleMessage", ctx, userID, message)}
+}
+
+func (_c *MockTokenService_HandleMessage_Call) Run(run func(ctx context.Context, userID string, message string)) *MockTokenService_HandleMessage_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockTokenService_HandleMessage_Call) Return(_a0 *core.Response, _a1 error) *MockTokenService_HandleMessage_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockTokenService_HandleMessage_Call) RunAndReturn(run func(context.Context, string, string) (*core.Response, error)) *MockTokenService_HandleMessage_Call {
 	_c.Call.Return(run)
 	return _c
 }
