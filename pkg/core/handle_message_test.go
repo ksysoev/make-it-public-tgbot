@@ -108,7 +108,7 @@ func TestHandleMessage(t *testing.T) {
 				require.NoError(t, err)
 
 				// Submit an answer to advance the conversation
-				err = conversation.Submit("Yes")
+				_, err = conversation.Submit("Yes")
 				require.NoError(t, err)
 
 				// Now Current() should fail because there are no more questions
@@ -150,36 +150,6 @@ func TestHandleMessage(t *testing.T) {
 			expectedErr: "failed to save conversation: save conversation error",
 		},
 		{
-			name:    "conversation complete - handle token exists result",
-			userID:  "user123",
-			message: "Yes",
-			setupMocks: func(t *testing.T) (*MockUserRepo, *MockMITProv, *conv.Conversation) {
-				repo := NewMockUserRepo(t)
-				prov := NewMockMITProv(t)
-
-				// Create a conversation that will be completed when we submit the message
-				conversation := conv.New("user123")
-				questions := conv.NewQuestions([]conv.Question{
-					{
-						Text:    "Do you want a token?",
-						Answers: []string{"Yes", "No"},
-					},
-				})
-
-				err := conversation.Start(StateTokenExists, questions)
-				require.NoError(t, err)
-
-				// Set up mocks for the complete conversation flow
-				repo.On("GetConversation", mock.Anything, "user123").Return(conversation, nil)
-				repo.On("SaveConversation", mock.Anything, conversation).Return(nil)
-
-				// No need to mock handleTokenExistsResult methods since we'll get an error before they're called
-
-				return repo, prov, conversation
-			},
-			expectedErr: "unsupported conversation state: complete",
-		},
-		{
 			name:    "unsupported conversation state",
 			userID:  "user123",
 			message: "Yes",
@@ -205,7 +175,7 @@ func TestHandleMessage(t *testing.T) {
 
 				return repo, prov, conversation
 			},
-			expectedErr: "unsupported conversation state: complete",
+			expectedErr: "unsupported conversation state: unsupportedState",
 		},
 	}
 

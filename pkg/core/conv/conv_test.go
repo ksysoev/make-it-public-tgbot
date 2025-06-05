@@ -187,11 +187,18 @@ func TestConversation_Submit(t *testing.T) {
 				tt.conv.Questions.Position = 0
 			}
 
-			err := tt.conv.Submit(tt.answer)
+			state, err := tt.conv.Submit(tt.answer)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
+				// For the "submit valid answer to complete conversation" test, the state returned by Submit
+				// is the state before it's updated to StateComplete
+				if tt.name == "submit valid answer to complete conversation" {
+					assert.Equal(t, State("asking_name"), state)
+				} else {
+					assert.Equal(t, tt.wantState, state)
+				}
 			}
 			assert.Equal(t, tt.wantState, tt.conv.State)
 		})
@@ -259,13 +266,12 @@ func TestConversation_Results(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotState, gotQA, err := tt.conv.Results()
+			gotQA, err := tt.conv.Results()
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, tt.wantState, gotState)
 			assert.Equal(t, tt.wantQA, gotQA)
 			// After getting results, the conversation should be in idle state
 			assert.Equal(t, StateIdle, tt.conv.State)
