@@ -123,7 +123,7 @@ func (u *User) GetConversation(ctx context.Context, conversationID string) (*con
 	data, err := u.db.Get(ctx, redisKey).Result()
 	if err != nil {
 		if err == redis.Nil {
-			return nil, fmt.Errorf("conversation not found: %s", conversationID)
+			return conv.New(conversationID), nil
 		}
 		return nil, fmt.Errorf("failed to get conversation: %w", err)
 	}

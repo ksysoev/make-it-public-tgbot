@@ -60,44 +60,45 @@ func (c *Conversation) Start(newState State, questions Questions) error {
 // Current retrieves the current question in the conversation if it is in an active questions state, else returns an error.
 func (c *Conversation) Current() (*Question, error) {
 	if c.State == StateIdle || c.State == StateComplete {
-		return nil, errors.New("conversation is not in questions state")
+		return nil, fmt.Errorf("conversation is not in questions state, current state: %s", c.State)
 	}
 
 	return c.Questions.GetQuestion()
 }
 
 // Submit processes the provided answer, advancing the conversation state and tracking completion or errors as appropriate.
-func (c *Conversation) Submit(answer string) error {
+func (c *Conversation) Submit(answer string) (State, error) {
 	if c.State == StateIdle || c.State == StateComplete {
-		return errors.New("conversation is not in questions state")
+		return "", fmt.Errorf("conversation is not in questions state, current state: %s", c.State)
 	}
 
 	done, err := c.Questions.ProcessAnswer(answer)
 	if err != nil {
-		return err
+		return "", err
 	}
+
+	state := c.State
 
 	if done {
 		c.State = StateComplete
 	}
 
-	return nil
+	return state, nil
 }
 
 // Results retrieves the completed question-answer pairs of a conversation if it is in the complete state, returning an error otherwise.
-func (c *Conversation) Results() (State, []QuestionAnswer, error) {
+func (c *Conversation) Results() ([]QuestionAnswer, error) {
 	if c.State != StateComplete {
-		return "", nil, ErrIsNotComplete
+		return nil, ErrIsNotComplete
 	}
 
 	r, err := c.Questions.GetResults()
 
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to get question results: %w", err)
+		return nil, fmt.Errorf("failed to get question results: %w", err)
 	}
 
-	curState := c.State
 	c.State = StateIdle
 
-	return curState, r, nil
+	return r, nil
 }

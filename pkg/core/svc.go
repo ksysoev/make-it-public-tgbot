@@ -52,11 +52,12 @@ func (s *Service) HandleMessage(ctx context.Context, userID string, message stri
 		return nil, fmt.Errorf("failed to get conversation: %w", err)
 	}
 
-	if err := cnv.Submit(message); err != nil {
+	state, err := cnv.Submit(message)
+	if err != nil {
 		return nil, fmt.Errorf("failed to submit message: %w", err)
 	}
 
-	state, res, err := cnv.Results()
+	res, err := cnv.Results()
 
 	switch {
 	case errors.Is(err, conv.ErrIsNotComplete):

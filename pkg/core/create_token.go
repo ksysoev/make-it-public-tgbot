@@ -25,7 +25,10 @@ func (s *Service) CreateToken(ctx context.Context, userID string) (*Response, er
 	}
 
 	if len(keys) > 0 {
-		c := conv.New(userID)
+		c, err := s.repo.GetConversation(ctx, userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get conversation: %w", err)
+		}
 
 		questions := conv.NewQuestions(
 			[]conv.Question{{
