@@ -100,7 +100,7 @@ func TestGenerateToken(t *testing.T) {
 			}
 
 			// Call the method
-			token, err := mit.GenerateToken()
+			token, err := mit.GenerateToken(tt.defaultTTL)
 
 			// Verify results
 			if tt.expectedError != "" {

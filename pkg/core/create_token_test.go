@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -41,7 +40,7 @@ func TestCreateToken(t *testing.T) {
 			generateErr:    nil,
 			addKeyErr:      nil,
 			saveConvErr:    nil,
-			expectedResp:   &Response{Message: fmt.Sprintf(tokenCreatedMessage, "token123", time.Now().Add(time.Hour).Format(time.DateTime))},
+			expectedResp:   &Response{Message: "What is the expiration period for your new API token?", Answers: []string{"1 day", "7 days", "30 days", "90 days"}},
 			expectedErr:    nil,
 			expectAddKey:   true,
 			expectSaveConv: false,
@@ -83,8 +82,8 @@ func TestCreateToken(t *testing.T) {
 			generateErr:    errors.New("generate token error"),
 			addKeyErr:      nil,
 			saveConvErr:    nil,
-			expectedResp:   nil,
-			expectedErr:    errors.New("failed to generate token: generate token error"),
+			expectedResp:   &Response{Message: "What is the expiration period for your new API token?", Answers: []string{"1 day", "7 days", "30 days", "90 days"}},
+			expectedErr:    nil,
 			expectAddKey:   false,
 			expectSaveConv: false,
 		},
@@ -101,8 +100,8 @@ func TestCreateToken(t *testing.T) {
 			generateErr:    nil,
 			addKeyErr:      errors.New("add key error"),
 			saveConvErr:    nil,
-			expectedResp:   nil,
-			expectedErr:    errors.New("failed to add API key: add key error"),
+			expectedResp:   &Response{Message: "What is the expiration period for your new API token?", Answers: []string{"1 day", "7 days", "30 days", "90 days"}},
+			expectedErr:    nil,
 			expectAddKey:   true,
 			expectSaveConv: false,
 		},
@@ -129,18 +128,18 @@ func TestCreateToken(t *testing.T) {
 
 			repo.On("GetAPIKeys", mock.Anything, tt.userID).Return(tt.existingKeys, tt.getKeysErr)
 
-			if tt.expectAddKey {
-				repo.On("AddAPIKey", mock.Anything, tt.userID, tt.token.KeyID, tt.token.ExpiresIn).Return(tt.addKeyErr)
-			}
+			// Mock GetConversation for all test cases
+			// We don't care how many times it's called
+			repo.On("GetConversation", mock.Anything, tt.userID).Return(conv.New(tt.userID), nil).Maybe()
 
+			// Mock SaveConversation for all test cases where we create a new token
 			if tt.existingKeys != nil && len(tt.existingKeys) == 0 {
-				prov.On("GenerateToken").Return(tt.token, tt.generateErr)
+				repo.On("SaveConversation", mock.Anything, mock.MatchedBy(func(c *conv.Conversation) bool {
+					return c.ID == tt.userID && c.State == "newToken"
+				})).Return(tt.saveConvErr)
 			}
 
 			if tt.expectSaveConv {
-				// Mock GetConversation to return a new conversation
-				repo.On("GetConversation", mock.Anything, tt.userID).Return(conv.New(tt.userID), nil)
-
 				// Create a matcher function that validates the conversation object
 				repo.On("SaveConversation", mock.Anything, mock.MatchedBy(func(c *conv.Conversation) bool {
 					// Verify that the conversation has the correct user ID and state
@@ -214,10 +213,12 @@ func TestHandleTokenExistsResult(t *testing.T) {
 				},
 			},
 			createTokenResp: &Response{
-				Message: fmt.Sprintf(tokenCreatedMessage, "new-token", time.Now().Add(time.Hour).Format(time.DateTime)),
+				Message: "What is the expiration period for your new API token?",
+				Answers: []string{"1 day", "7 days", "30 days", "90 days"},
 			},
 			expectedResp: &Response{
-				Message: fmt.Sprintf(tokenCreatedMessage, "new-token", time.Now().Add(time.Hour).Format(time.DateTime)),
+				Message: "What is the expiration period for your new API token?",
+				Answers: []string{"1 day", "7 days", "30 days", "90 days"},
 			},
 		},
 		{
@@ -247,8 +248,14 @@ func TestHandleTokenExistsResult(t *testing.T) {
 					Answer: "Yes",
 				},
 			},
-			createTokenErr: errors.New("create token error"),
-			expectedErr:    "failed to generate token: create token error",
+			createTokenResp: &Response{
+				Message: "What is the expiration period for your new API token?",
+				Answers: []string{"1 day", "7 days", "30 days", "90 days"},
+			},
+			expectedResp: &Response{
+				Message: "What is the expiration period for your new API token?",
+				Answers: []string{"1 day", "7 days", "30 days", "90 days"},
+			},
 		},
 		{
 			name:   "invalid number of answers",
@@ -281,6 +288,10 @@ func TestHandleTokenExistsResult(t *testing.T) {
 			// Create a partial mock of Service to mock CreateToken
 			svc := New(repo, prov)
 
+			// Mock GetConversation for all test cases
+			// We don't care how many times it's called
+			repo.On("GetConversation", mock.Anything, tt.userID).Return(conv.New(tt.userID), nil).Maybe()
+
 			// Setup mocks for RevokeToken if needed
 			if tt.answers[0].Answer == "Yes" {
 				// First GetAPIKeys call is to check if token exists before revoking
@@ -297,19 +308,10 @@ func TestHandleTokenExistsResult(t *testing.T) {
 					// Second GetAPIKeys call is after token is revoked, should return empty list
 					repo.On("GetAPIKeys", mock.Anything, tt.userID).Return([]string{}, nil).Once()
 
-					if tt.createTokenErr == nil {
-						// Mock successful token generation
-						prov.On("GenerateToken").Return(&APIToken{
-							KeyID:     "new-key",
-							Token:     "new-token",
-							ExpiresIn: time.Hour,
-						}, nil)
-
-						repo.On("AddAPIKey", mock.Anything, tt.userID, "new-key", time.Hour).Return(nil)
-					} else {
-						// Mock failed token generation
-						prov.On("GenerateToken").Return(nil, tt.createTokenErr)
-					}
+					// Mock SaveConversation for the new token case
+					repo.On("SaveConversation", mock.Anything, mock.MatchedBy(func(c *conv.Conversation) bool {
+						return c.ID == tt.userID && c.State == "newToken"
+					})).Return(nil)
 				}
 			}
 
