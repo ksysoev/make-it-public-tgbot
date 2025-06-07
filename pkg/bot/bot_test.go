@@ -70,10 +70,15 @@ func TestHandle(t *testing.T) {
 				Chat: &tgbotapi.Chat{
 					ID: 123,
 				},
+				From: &tgbotapi.User{
+					ID: 456,
+				},
 			},
-			setupMocks: func() {},
-			wantText:   welcomeMessage,
-			wantErr:    false,
+			setupMocks: func() {
+				mockTokenSvc.EXPECT().ResetConversation(mock.Anything, "456").Return(nil)
+			},
+			wantText: welcomeMessage,
+			wantErr:  false,
 		},
 		{
 			name: "help command",
@@ -88,6 +93,9 @@ func TestHandle(t *testing.T) {
 				},
 				Chat: &tgbotapi.Chat{
 					ID: 123,
+				},
+				From: &tgbotapi.User{
+					ID: 456,
 				},
 			},
 			setupMocks: func() {},
@@ -184,6 +192,9 @@ func TestHandle(t *testing.T) {
 				},
 				Chat: &tgbotapi.Chat{
 					ID: 123,
+				},
+				From: &tgbotapi.User{
+					ID: 456,
 				},
 			},
 			setupMocks: func() {},
@@ -317,6 +328,7 @@ func TestProcessUpdate(t *testing.T) {
 			},
 			setupMocks: func() {
 				mockTg.EXPECT().Send(mock.Anything).Return(tgbotapi.Message{}, nil)
+				mockTokenSvc.EXPECT().ResetConversation(mock.Anything, "456").Return(nil)
 			},
 		},
 	}

@@ -23,6 +23,7 @@ Use /help to see available commands.`
 /help - Display this help message
 /new_token - Generate a new API token
 /revoke_token - Revoke your current API token
+/cancel - Cancel the current question
 
 About Make It Public:
 Make It Public allows you to securely expose services that are behind NAT or firewalls to the internet.`
@@ -84,13 +85,19 @@ func (s *Service) Handle(ctx context.Context, msg *tgbotapi.Message) (tgbotapi.M
 
 // handleCommand handles Telegram command messages and generates an appropriate response based on the command received.
 func (s *Service) handleCommand(ctx context.Context, msg *tgbotapi.Message) (tgbotapi.MessageConfig, error) {
+	userID := fmt.Sprintf("%d", msg.From.ID)
+
 	switch msg.Command() {
 	case "start":
+		if err := s.tokenSvc.ResetConversation(ctx, userID); err != nil {
+			slog.ErrorContext(ctx, "Failed to reset conversation on start", slog.Any("error", err))
+		}
+
 		return newTextMessage(msg.Chat.ID, welcomeMessage), nil
 	case "help":
 		return newTextMessage(msg.Chat.ID, helpMessage), nil
 	case "new_token":
-		resp, err := s.tokenSvc.CreateToken(ctx, fmt.Sprintf("%d", msg.From.ID))
+		resp, err := s.tokenSvc.CreateToken(ctx, userID)
 		switch {
 		case errors.Is(err, core.ErrMaxTokensExceeded):
 			return newTextMessage(msg.Chat.ID, tokenExistsMessage), nil
@@ -100,7 +107,7 @@ func (s *Service) handleCommand(ctx context.Context, msg *tgbotapi.Message) (tgb
 			return newMessage(msg.Chat.ID, resp), nil
 		}
 	case "revoke_token":
-		err := s.tokenSvc.RevokeToken(ctx, fmt.Sprintf("%d", msg.From.ID))
+		err := s.tokenSvc.RevokeToken(ctx, userID)
 
 		switch {
 		case errors.Is(err, core.ErrTokenNotFound):
@@ -110,6 +117,12 @@ func (s *Service) handleCommand(ctx context.Context, msg *tgbotapi.Message) (tgb
 		}
 
 		return newTextMessage(msg.Chat.ID, tokenRevokedMessage), nil
+	case "cancel":
+		if err := s.tokenSvc.ResetConversation(ctx, userID); err != nil {
+			return tgbotapi.MessageConfig{}, fmt.Errorf("failed to reset conversation: %w", err)
+		}
+
+		return newTextMessage(msg.Chat.ID, "Conversation has been reset. You can start over with /new_token."), nil
 	default:
 		return newTextMessage(msg.Chat.ID, unknownCommandMessage), nil
 	}
