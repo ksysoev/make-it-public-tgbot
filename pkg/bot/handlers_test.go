@@ -44,7 +44,7 @@ func TestHandleCommand(t *testing.T) {
 			name:    "start command",
 			command: "start",
 			setupMocks: func(mockTokenSvc *MockTokenService) {
-				// No mocks needed for start command
+				mockTokenSvc.EXPECT().ResetConversation(mock.Anything, "456").Return(nil)
 			},
 			chatID:   123,
 			userID:   456,
@@ -143,6 +143,17 @@ func TestHandleCommand(t *testing.T) {
 			wantText: unknownCommandMessage,
 			wantErr:  false,
 		},
+		{
+			name:    "cancel command",
+			command: "cancel",
+			setupMocks: func(mockTokenSvc *MockTokenService) {
+				mockTokenSvc.EXPECT().ResetConversation(mock.Anything, "456").Return(nil)
+			},
+			chatID:   123,
+			userID:   456,
+			wantText: "Conversation has been reset. You can start over with /new_token.",
+			wantErr:  false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -228,7 +239,7 @@ func TestHandleMessage(t *testing.T) {
 				},
 			},
 			setupMocks: func(mockTokenSvc *MockTokenService) {
-				// No mocks needed for start command
+				mockTokenSvc.EXPECT().ResetConversation(mock.Anything, "456").Return(nil)
 			},
 			wantText: welcomeMessage,
 			wantErr:  false,

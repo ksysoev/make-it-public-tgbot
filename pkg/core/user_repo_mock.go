@@ -75,6 +75,53 @@ func (_c *MockUserRepo_AddAPIKey_Call) RunAndReturn(run func(context.Context, st
 	return _c
 }
 
+// DeleteConversation provides a mock function with given fields: ctx, conversationID
+func (_m *MockUserRepo) DeleteConversation(ctx context.Context, conversationID string) error {
+	ret := _m.Called(ctx, conversationID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteConversation")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, conversationID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockUserRepo_DeleteConversation_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteConversation'
+type MockUserRepo_DeleteConversation_Call struct {
+	*mock.Call
+}
+
+// DeleteConversation is a helper method to define mock.On call
+//   - ctx context.Context
+//   - conversationID string
+func (_e *MockUserRepo_Expecter) DeleteConversation(ctx interface{}, conversationID interface{}) *MockUserRepo_DeleteConversation_Call {
+	return &MockUserRepo_DeleteConversation_Call{Call: _e.mock.On("DeleteConversation", ctx, conversationID)}
+}
+
+func (_c *MockUserRepo_DeleteConversation_Call) Run(run func(ctx context.Context, conversationID string)) *MockUserRepo_DeleteConversation_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockUserRepo_DeleteConversation_Call) Return(_a0 error) *MockUserRepo_DeleteConversation_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockUserRepo_DeleteConversation_Call) RunAndReturn(run func(context.Context, string) error) *MockUserRepo_DeleteConversation_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetAPIKeys provides a mock function with given fields: ctx, userID
 func (_m *MockUserRepo) GetAPIKeys(ctx context.Context, userID string) ([]string, error) {
 	ret := _m.Called(ctx, userID)
