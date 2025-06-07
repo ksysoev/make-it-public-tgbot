@@ -90,7 +90,7 @@ func (s *Service) handleCommand(ctx context.Context, msg *tgbotapi.Message) (tgb
 	switch msg.Command() {
 	case "start":
 		if err := s.tokenSvc.ResetConversation(ctx, userID); err != nil {
-			slog.ErrorContext(ctx, "Failed to reset conversation on  start", slog.Any("error", err))
+			slog.ErrorContext(ctx, "Failed to reset conversation on start", slog.Any("error", err))
 		}
 
 		return newTextMessage(msg.Chat.ID, welcomeMessage), nil
