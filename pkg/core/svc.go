@@ -23,7 +23,7 @@ type UserRepo interface {
 }
 
 type MITProv interface {
-	GenerateToken(ttl int64) (*APIToken, error)
+	GenerateToken(keyID string, ttl int64) (*APIToken, error)
 	RevokeToken(keyID string) error
 }
 

@@ -117,7 +117,7 @@ func (s *Service) handleNewTokenResult(ctx context.Context, userID string, answe
 		}, nil
 	}
 
-	token, err := s.prov.GenerateToken(expiresIn)
+	token, err := s.prov.GenerateToken("", expiresIn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}

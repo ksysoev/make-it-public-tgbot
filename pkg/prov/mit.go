@@ -44,13 +44,14 @@ type generateTokenResponse struct {
 }
 
 // GenerateToken sends a request to generate an API token and returns the token along with its metadata or an error.
-func (m *MIT) GenerateToken(ttl int64) (*core.APIToken, error) {
+func (m *MIT) GenerateToken(keyID string, ttl int64) (*core.APIToken, error) {
 	if ttl <= 0 {
 		ttl = m.defaultTTL
 	}
 
 	req := generateTokenRequest{
-		TTL: ttl,
+		KeyID: keyID,
+		TTL:   ttl,
 	}
 
 	jsonReq, err := json.Marshal(req)
