@@ -178,7 +178,6 @@ func TestHandleTokenExistsResult(t *testing.T) {
 		name            string
 		userID          string
 		answers         []conv.QuestionAnswer
-		revokeErr       error
 		createTokenResp *Response
 		createTokenErr  error
 		expectedResp    *Response
@@ -220,21 +219,6 @@ func TestHandleTokenExistsResult(t *testing.T) {
 				Message: "What is the expiration period for your new API token?",
 				Answers: []string{"1 day", "7 days", "30 days", "90 days"},
 			},
-		},
-		{
-			name:   "answer is Yes - revoke error",
-			userID: "user123",
-			answers: []conv.QuestionAnswer{
-				{
-					Question: conv.Question{
-						Text:    "You already have an active API token. Do you want to regenerate it?",
-						Answers: []string{"Yes", "No"},
-					},
-					Answer: "Yes",
-				},
-			},
-			revokeErr:   errors.New("revoke error"),
-			expectedErr: "failed to revoke existing token: failed to remove API key from repository: revoke error",
 		},
 		{
 			name:   "answer is Yes - create token error",
@@ -288,31 +272,17 @@ func TestHandleTokenExistsResult(t *testing.T) {
 			// Create a partial mock of Service to mock CreateToken
 			svc := New(repo, prov)
 
-			// Mock GetConversation for all test cases
-			// We don't care how many times it's called
-			repo.On("GetConversation", mock.Anything, tt.userID).Return(conv.New(tt.userID), nil).Maybe()
+			// Setup conversation mocking for all test cases
+			conversation := conv.New(tt.userID)
 
-			// Setup mocks for RevokeToken if needed
+			// Setup mocks for tokenRegenerate state
 			if tt.answers[0].Answer == "Yes" {
-				// First GetAPIKeys call is to check if token exists before revoking
-				repo.On("GetAPIKeys", mock.Anything, tt.userID).Return([]string{"existing-key"}, nil).Once()
+				repo.On("GetConversation", mock.Anything, tt.userID).Return(conversation, nil)
 
-				// Mock RevokeToken
-				repo.On("RevokeToken", mock.Anything, tt.userID, "existing-key").Return(tt.revokeErr)
-
-				// Mock the provider's RevokeToken method
-				prov.On("RevokeToken", "existing-key").Return(nil)
-
-				if tt.revokeErr == nil {
-					// If RevokeToken succeeds, we need to mock CreateToken
-					// Second GetAPIKeys call is after token is revoked, should return empty list
-					repo.On("GetAPIKeys", mock.Anything, tt.userID).Return([]string{}, nil).Once()
-
-					// Mock SaveConversation for the new token case
-					repo.On("SaveConversation", mock.Anything, mock.MatchedBy(func(c *conv.Conversation) bool {
-						return c.ID == tt.userID && c.State == "newToken"
-					})).Return(nil)
-				}
+				// Mock SaveConversation for tokenRegenerate state
+				repo.On("SaveConversation", mock.Anything, mock.MatchedBy(func(c *conv.Conversation) bool {
+					return c.ID == tt.userID && c.State == StateTokenRegenerate
+				})).Return(nil)
 			}
 
 			resp, err := svc.handleTokenExistsResult(context.Background(), tt.userID, tt.answers)
