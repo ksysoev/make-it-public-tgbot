@@ -23,7 +23,7 @@ type UserRepo interface {
 }
 
 type MITProv interface {
-	GenerateToken(ttl int64) (*APIToken, error)
+	GenerateToken(keyID string, ttl int64) (*APIToken, error)
 	RevokeToken(keyID string) error
 }
 
@@ -87,6 +87,8 @@ func (s *Service) HandleMessage(ctx context.Context, userID string, message stri
 		return s.handleTokenExistsResult(ctx, userID, res)
 	case StateNewToken:
 		return s.handleNewTokenResult(ctx, userID, res)
+	case StateTokenRegenerate:
+		return s.handleTokenRegenerateResult(ctx, userID, res)
 	default:
 		return nil, fmt.Errorf("unsupported conversation state: %s", state)
 	}

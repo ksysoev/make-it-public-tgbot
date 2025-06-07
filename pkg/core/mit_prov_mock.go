@@ -19,9 +19,9 @@ func (_m *MockMITProv) EXPECT() *MockMITProv_Expecter {
 	return &MockMITProv_Expecter{mock: &_m.Mock}
 }
 
-// GenerateToken provides a mock function with given fields: ttl
-func (_m *MockMITProv) GenerateToken(ttl int64) (*APIToken, error) {
-	ret := _m.Called(ttl)
+// GenerateToken provides a mock function with given fields: keyID, ttl
+func (_m *MockMITProv) GenerateToken(keyID string, ttl int64) (*APIToken, error) {
+	ret := _m.Called(keyID, ttl)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GenerateToken")
@@ -29,19 +29,19 @@ func (_m *MockMITProv) GenerateToken(ttl int64) (*APIToken, error) {
 
 	var r0 *APIToken
 	var r1 error
-	if rf, ok := ret.Get(0).(func(int64) (*APIToken, error)); ok {
-		return rf(ttl)
+	if rf, ok := ret.Get(0).(func(string, int64) (*APIToken, error)); ok {
+		return rf(keyID, ttl)
 	}
-	if rf, ok := ret.Get(0).(func(int64) *APIToken); ok {
-		r0 = rf(ttl)
+	if rf, ok := ret.Get(0).(func(string, int64) *APIToken); ok {
+		r0 = rf(keyID, ttl)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*APIToken)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(int64) error); ok {
-		r1 = rf(ttl)
+	if rf, ok := ret.Get(1).(func(string, int64) error); ok {
+		r1 = rf(keyID, ttl)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -55,14 +55,15 @@ type MockMITProv_GenerateToken_Call struct {
 }
 
 // GenerateToken is a helper method to define mock.On call
+//   - keyID string
 //   - ttl int64
-func (_e *MockMITProv_Expecter) GenerateToken(ttl interface{}) *MockMITProv_GenerateToken_Call {
-	return &MockMITProv_GenerateToken_Call{Call: _e.mock.On("GenerateToken", ttl)}
+func (_e *MockMITProv_Expecter) GenerateToken(keyID interface{}, ttl interface{}) *MockMITProv_GenerateToken_Call {
+	return &MockMITProv_GenerateToken_Call{Call: _e.mock.On("GenerateToken", keyID, ttl)}
 }
 
-func (_c *MockMITProv_GenerateToken_Call) Run(run func(ttl int64)) *MockMITProv_GenerateToken_Call {
+func (_c *MockMITProv_GenerateToken_Call) Run(run func(keyID string, ttl int64)) *MockMITProv_GenerateToken_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(int64))
+		run(args[0].(string), args[1].(int64))
 	})
 	return _c
 }
@@ -72,7 +73,7 @@ func (_c *MockMITProv_GenerateToken_Call) Return(_a0 *APIToken, _a1 error) *Mock
 	return _c
 }
 
-func (_c *MockMITProv_GenerateToken_Call) RunAndReturn(run func(int64) (*APIToken, error)) *MockMITProv_GenerateToken_Call {
+func (_c *MockMITProv_GenerateToken_Call) RunAndReturn(run func(string, int64) (*APIToken, error)) *MockMITProv_GenerateToken_Call {
 	_c.Call.Return(run)
 	return _c
 }
