@@ -20,6 +20,7 @@ type UserRepo interface {
 	RevokeToken(ctx context.Context, userID string, apiKeyID string) error
 	SaveConversation(ctx context.Context, conversation *conv.Conversation) error
 	GetConversation(ctx context.Context, conversationID string) (*conv.Conversation, error)
+	DeleteConversation(ctx context.Context, conversationID string) error
 }
 
 type MITProv interface {
@@ -43,6 +44,15 @@ func New(repo UserRepo, prov MITProv) *Service {
 		repo: repo,
 		prov: prov,
 	}
+}
+
+// ResetConversation deletes the conversation associated with a user.
+func (s *Service) ResetConversation(ctx context.Context, userID string) error {
+	if err := s.repo.DeleteConversation(ctx, userID); err != nil {
+		return fmt.Errorf("failed to delete conversation: %w", err)
+	}
+
+	return nil
 }
 
 // HandleMessage processes an incoming user message within a conversation context and returns a response or an error.

@@ -137,3 +137,15 @@ func (u *User) GetConversation(ctx context.Context, conversationID string) (*con
 
 	return &conversation, nil
 }
+
+// DeleteConversation removes a conversation from the Redis store by its ID.
+func (u *User) DeleteConversation(ctx context.Context, conversationID string) error {
+	redisKey := u.keyPrefix + convKeyPrefix + conversationID
+
+	res := u.db.Del(ctx, redisKey)
+	if res.Err() != nil {
+		return fmt.Errorf("failed to delete conversation: %w", res.Err())
+	}
+
+	return nil
+}
