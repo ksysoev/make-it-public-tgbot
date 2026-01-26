@@ -3,7 +3,7 @@ module github.com/ksysoev/make-it-public-tgbot
 go 1.24.2
 
 require (
-	github.com/alicebob/miniredis/v2 v2.35.0
+	github.com/alicebob/miniredis/v2 v2.36.1
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/google/uuid v1.6.0
 	github.com/redis/go-redis/v9 v9.17.3
