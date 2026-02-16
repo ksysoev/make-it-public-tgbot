@@ -77,9 +77,11 @@ func (u *User) GetAPIKeys(ctx context.Context, userID string) ([]string, error) 
 	}
 
 	// Get keys with scores greater than current time (not expired)
-	keys, err := u.db.ZRangeByScore(ctx, redisKey, &redis.ZRangeBy{
-		Min: fmt.Sprintf("%d", now),
-		Max: "+inf",
+	keys, err := u.db.ZRangeArgs(ctx, redis.ZRangeArgs{
+		Key:     redisKey,
+		ByScore: true,
+		Start:   fmt.Sprintf("%d", now),
+		Stop:    "+inf",
 	}).Result()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get API keys: %w", err)
