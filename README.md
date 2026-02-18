@@ -17,22 +17,36 @@ The telegram bot service consists of two main components deployed as a Docker Sw
 └──────────┬──────────┘
            │
            ▼
-┌─────────────────────┐      ┌──────────────────────┐
-│      mitbot         │─────▶│  make-it-public API  │
-│  (Telegram Bot)     │      │  (port 8082 on host) │
-└──────────┬──────────┘      └──────────────────────┘
-           │
-           ▼
-┌─────────────────────┐
-│   redis (internal)  │
-│  User data storage  │
-└─────────────────────┘
+┌─────────────────────┐      ┌──────────────────────────────┐
+│      mitbot         │─────▶│  makeitpublic_mitserver      │
+│  (Telegram Bot)     │      │  (make-it-public API:8082)   │
+└──────────┬──────────┘      └──────────────────────────────┘
+           │                            │
+           │                            │
+           ▼                            │
+┌─────────────────────┐                │
+│   redis (internal)  │                │
+│  User data storage  │                │
+└─────────────────────┘                │
+                                       │
+    mitbot-network (internal)          │
+    ═══════════════════════════════════╪═══
+    mit-network (shared)               │
+                                       │
+                        ┌──────────────┴──────────┐
+                        │  makeitpublic stack     │
+                        │  (mitserver, redis,     │
+                        │   caddy)                │
+                        └─────────────────────────┘
 ```
 
 **Network Configuration**:
-- The bot runs in its own isolated overlay network (`mitbot-network`)
-- Connects to the Make It Public API via exposed host port 8082
+- The bot runs in two overlay networks:
+  - `mitbot-network` - Internal network for bot-to-Redis communication
+  - `mit-network` - Shared network for accessing the make-it-public API service
+- Connects to the Make It Public API using Docker service discovery: `makeitpublic_mitserver:8082`
 - Uses dedicated Redis instance (not shared with make-it-public service)
+- No external ports exposed (bot is purely internal)
 
 ## Deployment
 
@@ -40,20 +54,20 @@ The telegram bot service consists of two main components deployed as a Docker Sw
 
 - Docker Swarm initialized on the target host
 - GitHub Actions secrets configured in the `production` environment
-- Make It Public service already deployed and accessible on port 8082
+- Make It Public service already deployed to the `makeitpublic` stack
+- The bot must connect to the `mit-network` overlay network (shared with make-it-public stack)
 
 ### Environment Variables
 
 #### Non-Secret Variables
 - `VERSION` - Docker image tag (automatically set from git tag)
 - `NETWORK_NAME` - Overlay network name (default: `mitbot-network`)
+- `MIT_URL` - Make It Public API URL (uses Docker service discovery: `http://makeitpublic_mitserver:8082`)
 - `MIT_DEFAULT_TTL` - Default token TTL in seconds (default: 604800 = 7 days)
 - `LOG_LEVEL` - Logging level (default: `info`)
 
 #### Secret Variables (GitHub Secrets)
 - `BOT_TOKEN` - Telegram bot token from [@BotFather](https://t.me/botfather)
-- `MIT_URL` - Make It Public API URL (must use host IP: `http://167.172.190.133:8082`)
-  - **Note**: Use the host IP address, not hostname, because the bot runs in an isolated overlay network and needs to access the API via the host's exposed port
 - `HOST` - Deployment server hostname/IP
 - `USERNAME` - SSH username for deployment
 - `PORT` - SSH port for deployment
@@ -222,14 +236,27 @@ go test -cover ./...
 
 ### Cannot connect to MIT API
 
-1. Verify make-it-public service is running and port 8082 is accessible:
+1. Verify make-it-public service is running and accessible via Docker network:
    ```bash
-   curl http://localhost:8082/health
+   # Check if makeitpublic stack is running
+   docker stack ps makeitpublic
+   
+   # Test connectivity from within mitbot network
+   docker run --rm --network mit-network alpine wget -qO- http://makeitpublic_mitserver:8082/health
    ```
 
 2. Check MIT_URL environment variable:
    ```bash
    docker service inspect mitbot_mitbot --format '{{range .Spec.TaskTemplate.ContainerSpec.Env}}{{println .}}{{end}}' | grep MIT_URL
+   ```
+   
+3. Verify both services are on the shared network:
+   ```bash
+   # Check mitbot network connections
+   docker service inspect mitbot_mitbot --format '{{json .Spec.TaskTemplate.Networks}}' | jq
+   
+   # Check makeitpublic_mitserver network connections
+   docker service inspect makeitpublic_mitserver --format '{{json .Spec.TaskTemplate.Networks}}' | jq
    ```
 
 ### Redis connection issues
