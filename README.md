@@ -52,7 +52,8 @@ The telegram bot service consists of two main components deployed as a Docker Sw
 
 #### Secret Variables (GitHub Secrets)
 - `BOT_TOKEN` - Telegram bot token from [@BotFather](https://t.me/botfather)
-- `MIT_URL` - Make It Public API URL (e.g., `http://167.172.190.133:8082`)
+- `MIT_URL` - Make It Public API URL (must use host IP: `http://167.172.190.133:8082`)
+  - **Note**: Use the host IP address, not hostname, because the bot runs in an isolated overlay network and needs to access the API via the host's exposed port
 - `HOST` - Deployment server hostname/IP
 - `USERNAME` - SSH username for deployment
 - `PORT` - SSH port for deployment
