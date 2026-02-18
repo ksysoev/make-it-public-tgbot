@@ -72,7 +72,8 @@ jobs:
           "VERSION": "${{ github.ref_name }}",
           "NETWORK_NAME": "mitbot-network",
           "MIT_DEFAULT_TTL": "604800",
-          "LOG_LEVEL": "info"
+          "LOG_LEVEL": "info",
+          "MIT_URL": "http://makeitpublic_mitserver:8082"
         }
     secrets:
       # SSH connection parameters
@@ -83,6 +84,5 @@ jobs:
       # Deployment secrets (sensitive environment variables)
       deployment_secrets: |
         {
-          "BOT_TOKEN": "${{ secrets.BOT_TOKEN }}",
-          "MIT_URL": "${{ secrets.MIT_URL }}"
+          "BOT_TOKEN": "${{ secrets.BOT_TOKEN }}"
         }

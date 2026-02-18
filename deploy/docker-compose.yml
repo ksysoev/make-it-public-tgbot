@@ -28,6 +28,7 @@ services:
     command: ["run"]
     networks:
       - backend
+      - mit-api
     depends_on:
       - redis
     deploy:
@@ -48,9 +49,13 @@ volumes:
   redis_data:
 
 networks:
-  # Separate backend network for telegram bot services
-  # Uses dedicated network (not shared with make-it-public) for better isolation
-  # The bot connects to make-it-public API via exposed host port 8082
+  # Internal backend network for telegram bot services
   backend:
     driver: overlay
     name: ${NETWORK_NAME:-mitbot-network}
+  
+  # External network to connect to make-it-public API
+  # This network is shared with the make-it-public stack
+  mit-api:
+    name: mit-network
+    external: true
