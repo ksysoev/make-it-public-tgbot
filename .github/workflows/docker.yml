@@ -64,7 +64,7 @@ jobs:
     uses: ksysoev/cloudlab/.github/workflows/deploy-service.yml@main
     with:
       environment_name: production
-      docker_compose_path: deploy/docker-compose.yml
+      docker_compose_file: deploy/docker-compose.yml
       service_name: mitbot
       # Non-secret environment variables
       environment_vars: |
