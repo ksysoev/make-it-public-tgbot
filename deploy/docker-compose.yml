@@ -57,6 +57,5 @@ networks:
   # External network to connect to make-it-public API
   # This network is shared with the make-it-public stack
   mit-api:
-    driver: overlay
     name: mit-network
     external: true
