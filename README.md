@@ -81,9 +81,10 @@ git push origin v1.0.0
 ssh -p 1923 deployer@167.172.190.133
 
 # Navigate to deployment directory
+# The cloudlab workflow copies deploy/docker-compose.yml to this location
 cd ~/cloudlab/stacks/mitbot
 
-# Pull latest images
+# Deploy the stack
 docker stack deploy -c docker-compose.yml mitbot
 ```
 
@@ -174,10 +175,10 @@ go test -cover ./...
 ## Bot Commands
 
 - `/start` - Start interaction with the bot
-- `/token` - Generate a new API token
-- `/revoke` - Revoke an existing token
-- `/list` - List all your active tokens
 - `/help` - Show help message
+- `/new_token` - Generate a new API token
+- `/revoke_token` - Revoke an existing token
+- `/cancel` - Cancel the current operation
 
 ## Project Structure
 
