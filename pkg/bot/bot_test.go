@@ -13,8 +13,8 @@ import (
 
 func TestNew(t *testing.T) {
 	tests := []struct {
-		name    string
 		cfg     *Config
+		name    string
 		wantErr bool
 	}{
 		{
@@ -295,9 +295,9 @@ func TestProcessUpdate(t *testing.T) {
 	svc.handler = svc
 
 	tests := []struct {
-		name       string
 		update     *tgbotapi.Update
 		setupMocks func()
+		name       string
 	}{
 		{
 			name: "nil message",

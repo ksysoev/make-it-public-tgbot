@@ -181,6 +181,65 @@ func (_c *MockUserRepo_GetAPIKeys_Call) RunAndReturn(run func(context.Context, s
 	return _c
 }
 
+// GetAPIKeysWithExpiration provides a mock function with given fields: ctx, userID
+func (_m *MockUserRepo) GetAPIKeysWithExpiration(ctx context.Context, userID string) ([]KeyInfo, error) {
+	ret := _m.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAPIKeysWithExpiration")
+	}
+
+	var r0 []KeyInfo
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) ([]KeyInfo, error)); ok {
+		return rf(ctx, userID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) []KeyInfo); ok {
+		r0 = rf(ctx, userID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]KeyInfo)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockUserRepo_GetAPIKeysWithExpiration_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAPIKeysWithExpiration'
+type MockUserRepo_GetAPIKeysWithExpiration_Call struct {
+	*mock.Call
+}
+
+// GetAPIKeysWithExpiration is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+func (_e *MockUserRepo_Expecter) GetAPIKeysWithExpiration(ctx interface{}, userID interface{}) *MockUserRepo_GetAPIKeysWithExpiration_Call {
+	return &MockUserRepo_GetAPIKeysWithExpiration_Call{Call: _e.mock.On("GetAPIKeysWithExpiration", ctx, userID)}
+}
+
+func (_c *MockUserRepo_GetAPIKeysWithExpiration_Call) Run(run func(ctx context.Context, userID string)) *MockUserRepo_GetAPIKeysWithExpiration_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockUserRepo_GetAPIKeysWithExpiration_Call) Return(_a0 []KeyInfo, _a1 error) *MockUserRepo_GetAPIKeysWithExpiration_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockUserRepo_GetAPIKeysWithExpiration_Call) RunAndReturn(run func(context.Context, string) ([]KeyInfo, error)) *MockUserRepo_GetAPIKeysWithExpiration_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetConversation provides a mock function with given fields: ctx, conversationID
 func (_m *MockUserRepo) GetConversation(ctx context.Context, conversationID string) (*conv.Conversation, error) {
 	ret := _m.Called(ctx, conversationID)

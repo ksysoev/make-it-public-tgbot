@@ -66,9 +66,9 @@ func TestConversation_Start(t *testing.T) {
 
 func TestConversation_Current(t *testing.T) {
 	tests := []struct {
-		name    string
 		conv    *Conversation
 		want    *Question
+		name    string
 		wantErr bool
 	}{
 		{

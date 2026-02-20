@@ -46,6 +46,7 @@ func (f *Questions) ProcessAnswer(answer string) (bool, error) {
 	for _, a := range answers {
 		if a == answer {
 			f.QAPairs[f.Position].Answer = answer
+			f.QAPairs[f.Position].Field = f.QAPairs[f.Position].Question.Field
 			f.Position++
 			return f.Position >= len(f.QAPairs), nil
 		}

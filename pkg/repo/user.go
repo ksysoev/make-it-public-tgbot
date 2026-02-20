@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ksysoev/make-it-public-tgbot/pkg/core"
 	"github.com/ksysoev/make-it-public-tgbot/pkg/core/conv"
 	"github.com/redis/go-redis/v9"
 )
@@ -85,6 +86,41 @@ func (u *User) GetAPIKeys(ctx context.Context, userID string) ([]string, error) 
 	}).Result()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get API keys: %w", err)
+	}
+
+	return keys, nil
+}
+
+// GetAPIKeysWithExpiration retrieves all active API keys for a user along with their expiration times.
+// Returns a slice of KeyInfo containing the key ID and expiration time, or an error if the operation fails.
+func (u *User) GetAPIKeysWithExpiration(ctx context.Context, userID string) ([]core.KeyInfo, error) {
+	redisKey := u.keyPrefix + apiKeyPrefix + userID
+
+	now := time.Now().Unix()
+
+	// clean up expired keys
+	_, err := u.db.ZRemRangeByScore(ctx, redisKey, "-inf", fmt.Sprintf("%d", now)).Result()
+	if err != nil {
+		return nil, fmt.Errorf("failed to remove expired API keys: %w", err)
+	}
+
+	// Get keys with scores greater than current time (not expired), including scores
+	zSlice, err := u.db.ZRangeByScoreWithScores(ctx, redisKey, &redis.ZRangeBy{
+		Min: fmt.Sprintf("%d", now),
+		Max: "+inf",
+	}).Result()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get API keys with scores: %w", err)
+	}
+
+	keys := make([]core.KeyInfo, len(zSlice))
+	for i, z := range zSlice {
+		// Score is (expiresAt - ttlOffset), so restore the original expiration
+		expiresAt := time.Unix(int64(z.Score), 0).Add(ttlOffset)
+		keys[i] = core.KeyInfo{
+			KeyID:     z.Member.(string),
+			ExpiresAt: expiresAt,
+		}
 	}
 
 	return keys, nil

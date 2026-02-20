@@ -32,12 +32,12 @@ func TestSetupHandler(t *testing.T) {
 
 func TestHandleCommand(t *testing.T) {
 	tests := []struct {
+		setupMocks func(mockTokenSvc *MockTokenService)
 		name       string
 		command    string
-		setupMocks func(mockTokenSvc *MockTokenService)
+		wantText   string
 		chatID     int64
 		userID     int64
-		wantText   string
 		wantErr    bool
 	}{
 		{
@@ -101,10 +101,10 @@ func TestHandleCommand(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "revoke_token command - success",
+			name:    "revoke_token command - success (single token)",
 			command: "revoke_token",
 			setupMocks: func(mockTokenSvc *MockTokenService) {
-				mockTokenSvc.EXPECT().RevokeToken(mock.Anything, "456").Return(nil)
+				mockTokenSvc.EXPECT().RevokeToken(mock.Anything, "456").Return(nil, nil)
 			},
 			chatID:   123,
 			userID:   456,
@@ -112,10 +112,25 @@ func TestHandleCommand(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name:    "revoke_token command - multiple tokens (conversational selection)",
+			command: "revoke_token",
+			setupMocks: func(mockTokenSvc *MockTokenService) {
+				resp := &core.Response{
+					Message: "Which token do you want to revoke?",
+					Answers: []string{"abcdef12 (exp: 2026-03-01)", "xyz98765 (exp: 2026-04-01)"},
+				}
+				mockTokenSvc.EXPECT().RevokeToken(mock.Anything, "456").Return(resp, nil)
+			},
+			chatID:   123,
+			userID:   456,
+			wantText: "Which token do you want to revoke?",
+			wantErr:  false,
+		},
+		{
 			name:    "revoke_token command - no token to revoke",
 			command: "revoke_token",
 			setupMocks: func(mockTokenSvc *MockTokenService) {
-				mockTokenSvc.EXPECT().RevokeToken(mock.Anything, "456").Return(core.ErrTokenNotFound)
+				mockTokenSvc.EXPECT().RevokeToken(mock.Anything, "456").Return(nil, core.ErrTokenNotFound)
 			},
 			chatID:   123,
 			userID:   456,
@@ -126,7 +141,41 @@ func TestHandleCommand(t *testing.T) {
 			name:    "revoke_token command - error",
 			command: "revoke_token",
 			setupMocks: func(mockTokenSvc *MockTokenService) {
-				mockTokenSvc.EXPECT().RevokeToken(mock.Anything, "456").Return(errors.New("revoke error"))
+				mockTokenSvc.EXPECT().RevokeToken(mock.Anything, "456").Return(nil, errors.New("revoke error"))
+			},
+			chatID:  123,
+			userID:  456,
+			wantErr: true,
+		},
+		{
+			name:    "my_tokens command - success",
+			command: "my_tokens",
+			setupMocks: func(mockTokenSvc *MockTokenService) {
+				resp := &core.Response{
+					Message: "🔑 Your Active API Tokens (2/3)\n\n1. abcdef123456...\n   ⏱ Expires: 2026-03-01 00:00:00\n",
+				}
+				mockTokenSvc.EXPECT().ListTokens(mock.Anything, "456").Return(resp, nil)
+			},
+			chatID:  123,
+			userID:  456,
+			wantErr: false,
+		},
+		{
+			name:    "my_tokens command - no tokens",
+			command: "my_tokens",
+			setupMocks: func(mockTokenSvc *MockTokenService) {
+				mockTokenSvc.EXPECT().ListTokens(mock.Anything, "456").Return(nil, core.ErrTokenNotFound)
+			},
+			chatID:   123,
+			userID:   456,
+			wantText: noTokensMessage,
+			wantErr:  false,
+		},
+		{
+			name:    "my_tokens command - error",
+			command: "my_tokens",
+			setupMocks: func(mockTokenSvc *MockTokenService) {
+				mockTokenSvc.EXPECT().ListTokens(mock.Anything, "456").Return(nil, errors.New("list error"))
 			},
 			chatID:  123,
 			userID:  456,

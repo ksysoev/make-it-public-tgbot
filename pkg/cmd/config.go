@@ -12,9 +12,9 @@ import (
 )
 
 type appConfig struct {
+	Repo repo.Config `mapstructure:"repo"`
 	Bot  bot.Config  `mapstructure:"bot"`
 	MIT  prov.Config `mapstructure:"mit"`
-	Repo repo.Config `mapstructure:"repo"`
 }
 
 // loadConfig loads the application configuration using the provided arguments and environment variables.

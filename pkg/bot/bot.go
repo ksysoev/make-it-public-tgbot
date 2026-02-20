@@ -31,16 +31,17 @@ type Config struct {
 
 type TokenService interface {
 	CreateToken(ctx context.Context, userID string) (*core.Response, error)
-	RevokeToken(ctx context.Context, userID string) error
+	RevokeToken(ctx context.Context, userID string) (*core.Response, error)
+	ListTokens(ctx context.Context, userID string) (*core.Response, error)
 	HandleMessage(ctx context.Context, userID string, message string) (*core.Response, error)
 	ResetConversation(ctx context.Context, userID string) error
 }
 
 type Service struct {
-	token    string
 	tg       tgClient
 	tokenSvc TokenService
 	handler  Handler
+	token    string
 }
 
 // New initializes a new Service with the given configuration and returns an error if the configuration is invalid.

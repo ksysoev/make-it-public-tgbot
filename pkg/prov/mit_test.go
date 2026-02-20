@@ -27,11 +27,11 @@ func TestNew(t *testing.T) {
 
 func TestGenerateToken(t *testing.T) {
 	tests := []struct {
-		name           string
-		defaultTTL     int64
 		serverResponse func(w http.ResponseWriter, r *http.Request)
 		expectedToken  *core.APIToken
+		name           string
 		expectedError  string
+		defaultTTL     int64
 	}{
 		{
 			name:       "success",

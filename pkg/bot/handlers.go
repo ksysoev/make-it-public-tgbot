@@ -21,17 +21,18 @@ Use /help to see available commands.`
 
 /start - Show welcome message
 /help - Display this help message
-/new_token - Generate a new API token
-/revoke_token - Revoke your current API token
+/new_token - Generate a new API token (up to 3)
+/my_tokens - List your active API tokens
+/revoke_token - Revoke an API token
 /cancel - Cancel the current question
 
 About Make It Public:
 Make It Public allows you to securely expose services that are behind NAT or firewalls to the internet.`
 	unknownCommandMessage  = "❓ Unknown command.\n\nUse /help to see the list of available commands."
-	tokenExistsMessage     = "⚠️ You already have an active API token. You can create a new one after your current token expires."
 	notCommandMessage      = "I can only respond to commands. Try /help to see what I can do."
 	tokenRevokedMessage    = "🔒 Your API token has been successfully revoked.\n\nYou can create a new one using /new_token command."
 	noTokenToRevokeMessage = "❌ You don't have an active API token to revoke.\n\nUse /new_token to create one."
+	noTokensMessage        = "❌ You don't have any active API tokens.\n\nUse /new_token to create one."
 )
 
 // Handler defines the interface for processing and responding to incoming messages in a Telegram bot context.
@@ -98,25 +99,37 @@ func (s *Service) handleCommand(ctx context.Context, msg *tgbotapi.Message) (tgb
 		return newTextMessage(msg.Chat.ID, helpMessage), nil
 	case "new_token":
 		resp, err := s.tokenSvc.CreateToken(ctx, userID)
-		switch {
-		case errors.Is(err, core.ErrMaxTokensExceeded):
-			return newTextMessage(msg.Chat.ID, tokenExistsMessage), nil
-		case err != nil:
+		if err != nil {
 			return tgbotapi.MessageConfig{}, fmt.Errorf("failed to create token: %w", err)
+		}
+
+		return newMessage(msg.Chat.ID, resp), nil
+	case "my_tokens":
+		resp, err := s.tokenSvc.ListTokens(ctx, userID)
+
+		switch {
+		case errors.Is(err, core.ErrTokenNotFound):
+			return newTextMessage(msg.Chat.ID, noTokensMessage), nil
+		case err != nil:
+			return tgbotapi.MessageConfig{}, fmt.Errorf("failed to list tokens: %w", err)
 		default:
 			return newMessage(msg.Chat.ID, resp), nil
 		}
 	case "revoke_token":
-		err := s.tokenSvc.RevokeToken(ctx, userID)
+		resp, err := s.tokenSvc.RevokeToken(ctx, userID)
 
 		switch {
 		case errors.Is(err, core.ErrTokenNotFound):
 			return newTextMessage(msg.Chat.ID, noTokenToRevokeMessage), nil
 		case err != nil:
 			return tgbotapi.MessageConfig{}, fmt.Errorf("failed to revoke token: %w", err)
+		case resp != nil:
+			// Multi-token case: a conversation was started to select which token to revoke.
+			return newMessage(msg.Chat.ID, resp), nil
+		default:
+			// Single-token case: revoked directly.
+			return newTextMessage(msg.Chat.ID, tokenRevokedMessage), nil
 		}
-
-		return newTextMessage(msg.Chat.ID, tokenRevokedMessage), nil
 	case "cancel":
 		if err := s.tokenSvc.ResetConversation(ctx, userID); err != nil {
 			return tgbotapi.MessageConfig{}, fmt.Errorf("failed to reset conversation: %w", err)

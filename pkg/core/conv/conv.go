@@ -18,6 +18,7 @@ const (
 
 type Question struct {
 	Text    string   `json:"text"`
+	Field   string   `json:"field,omitempty"`
 	Answers []string `json:"answers,omitempty"`
 }
 
