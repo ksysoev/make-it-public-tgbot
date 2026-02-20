@@ -31,11 +31,11 @@ func TestNewQuestions(t *testing.T) {
 
 func TestQuestions_GetQuestion(t *testing.T) {
 	tests := []struct {
+		errType error
+		want    *Question
 		name    string
 		qs      Questions
-		want    *Question
 		wantErr bool
-		errType error
 	}{
 		{
 			name: "get first question",
@@ -94,12 +94,12 @@ func TestQuestions_GetQuestion(t *testing.T) {
 func TestQuestions_ProcessAnswer(t *testing.T) {
 	tests := []struct {
 		name       string
-		qs         Questions
 		answer     string
+		wantAnswer string
+		qs         Questions
+		wantPos    int
 		wantDone   bool
 		wantErr    bool
-		wantPos    int
-		wantAnswer string
 	}{
 		{
 			name: "process valid answer - not done",
@@ -174,11 +174,11 @@ func TestQuestions_ProcessAnswer(t *testing.T) {
 
 func TestQuestions_GetResults(t *testing.T) {
 	tests := []struct {
-		name    string
-		qs      Questions
-		want    []QuestionAnswer
-		wantErr bool
 		errType error
+		name    string
+		want    []QuestionAnswer
+		qs      Questions
+		wantErr bool
 	}{
 		{
 			name: "get results - complete",

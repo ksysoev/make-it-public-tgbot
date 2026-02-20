@@ -16,9 +16,9 @@ type Config struct {
 }
 
 type MIT struct {
-	defaultTTL int64
-	baseUrl    string
 	cl         *http.Client
+	baseUrl    string
+	defaultTTL int64
 }
 
 // New creates and returns a new instance of the MIT struct initialized with the provided configuration.

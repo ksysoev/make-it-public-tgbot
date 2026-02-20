@@ -10,13 +10,14 @@ import (
 )
 
 var (
-	ErrMaxTokensExceeded = fmt.Errorf("maximum tokens exceeded")
-	ErrTokenNotFound     = fmt.Errorf("token not found")
+	ErrTokenNotFound = fmt.Errorf("token not found")
 )
 
+// UserRepo defines the storage operations required by the core service.
 type UserRepo interface {
 	AddAPIKey(ctx context.Context, userID string, apiKeyID string, expiresIn time.Duration) error
 	GetAPIKeys(ctx context.Context, userID string) ([]string, error)
+	GetAPIKeysWithExpiration(ctx context.Context, userID string) ([]KeyInfo, error)
 	RevokeToken(ctx context.Context, userID string, apiKeyID string) error
 	SaveConversation(ctx context.Context, conversation *conv.Conversation) error
 	GetConversation(ctx context.Context, conversationID string) (*conv.Conversation, error)
@@ -99,6 +100,10 @@ func (s *Service) HandleMessage(ctx context.Context, userID string, message stri
 		return s.handleNewTokenResult(ctx, userID, res)
 	case StateTokenRegenerate:
 		return s.handleTokenRegenerateResult(ctx, userID, res)
+	case StateSelectTokenToRegenerate:
+		return s.handleSelectTokenToRegenerateResult(ctx, userID, res)
+	case StateSelectTokenToRevoke:
+		return s.handleSelectTokenToRevokeResult(ctx, userID, res)
 	default:
 		return nil, fmt.Errorf("unsupported conversation state: %s", state)
 	}

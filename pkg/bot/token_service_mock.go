@@ -143,6 +143,65 @@ func (_c *MockTokenService_HandleMessage_Call) RunAndReturn(run func(context.Con
 	return _c
 }
 
+// ListTokens provides a mock function with given fields: ctx, userID
+func (_m *MockTokenService) ListTokens(ctx context.Context, userID string) (*core.Response, error) {
+	ret := _m.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListTokens")
+	}
+
+	var r0 *core.Response
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*core.Response, error)); ok {
+		return rf(ctx, userID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *core.Response); ok {
+		r0 = rf(ctx, userID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*core.Response)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockTokenService_ListTokens_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListTokens'
+type MockTokenService_ListTokens_Call struct {
+	*mock.Call
+}
+
+// ListTokens is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+func (_e *MockTokenService_Expecter) ListTokens(ctx interface{}, userID interface{}) *MockTokenService_ListTokens_Call {
+	return &MockTokenService_ListTokens_Call{Call: _e.mock.On("ListTokens", ctx, userID)}
+}
+
+func (_c *MockTokenService_ListTokens_Call) Run(run func(ctx context.Context, userID string)) *MockTokenService_ListTokens_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockTokenService_ListTokens_Call) Return(_a0 *core.Response, _a1 error) *MockTokenService_ListTokens_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockTokenService_ListTokens_Call) RunAndReturn(run func(context.Context, string) (*core.Response, error)) *MockTokenService_ListTokens_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ResetConversation provides a mock function with given fields: ctx, userID
 func (_m *MockTokenService) ResetConversation(ctx context.Context, userID string) error {
 	ret := _m.Called(ctx, userID)
@@ -191,21 +250,33 @@ func (_c *MockTokenService_ResetConversation_Call) RunAndReturn(run func(context
 }
 
 // RevokeToken provides a mock function with given fields: ctx, userID
-func (_m *MockTokenService) RevokeToken(ctx context.Context, userID string) error {
+func (_m *MockTokenService) RevokeToken(ctx context.Context, userID string) (*core.Response, error) {
 	ret := _m.Called(ctx, userID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for RevokeToken")
 	}
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+	var r0 *core.Response
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*core.Response, error)); ok {
+		return rf(ctx, userID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *core.Response); ok {
 		r0 = rf(ctx, userID)
 	} else {
-		r0 = ret.Error(0)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*core.Response)
+		}
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // MockTokenService_RevokeToken_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RevokeToken'
@@ -227,12 +298,12 @@ func (_c *MockTokenService_RevokeToken_Call) Run(run func(ctx context.Context, u
 	return _c
 }
 
-func (_c *MockTokenService_RevokeToken_Call) Return(_a0 error) *MockTokenService_RevokeToken_Call {
-	_c.Call.Return(_a0)
+func (_c *MockTokenService_RevokeToken_Call) Return(_a0 *core.Response, _a1 error) *MockTokenService_RevokeToken_Call {
+	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockTokenService_RevokeToken_Call) RunAndReturn(run func(context.Context, string) error) *MockTokenService_RevokeToken_Call {
+func (_c *MockTokenService_RevokeToken_Call) RunAndReturn(run func(context.Context, string) (*core.Response, error)) *MockTokenService_RevokeToken_Call {
 	_c.Call.Return(run)
 	return _c
 }

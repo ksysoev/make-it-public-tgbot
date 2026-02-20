@@ -114,6 +114,36 @@ func TestGetAPIKeys(t *testing.T) {
 	assert.Empty(t, keys)
 }
 
+func TestGetAPIKeysWithExpiration(t *testing.T) {
+	mr, user := setupRedis(t)
+	defer mr.Close()
+
+	ctx := context.Background()
+	userID := "userExp"
+
+	// Empty state
+	keys, err := user.GetAPIKeysWithExpiration(ctx, userID)
+	assert.NoError(t, err)
+	assert.Empty(t, keys)
+
+	// Add keyB with a valid 48h expiry via AddAPIKey
+	err = user.AddAPIKey(ctx, userID, "keyB", 48*time.Hour)
+	require.NoError(t, err)
+
+	// Directly insert keyA with an already-expired score (in the past) to simulate expiry
+	redisKey := user.keyPrefix + apiKeyPrefix + userID
+	expiredScore := float64(time.Now().Add(-time.Hour).Unix()) // score in the past
+	err = user.db.ZAdd(ctx, redisKey, redis.Z{Score: expiredScore, Member: "keyA"}).Err()
+	require.NoError(t, err)
+
+	// GetAPIKeysWithExpiration should return only keyB; keyA is already expired
+	keys, err = user.GetAPIKeysWithExpiration(ctx, userID)
+	assert.NoError(t, err)
+	assert.Len(t, keys, 1)
+	assert.Equal(t, "keyB", keys[0].KeyID)
+	assert.True(t, keys[0].ExpiresAt.After(time.Now()), "expiry should be in the future")
+}
+
 func TestClose(t *testing.T) {
 	mr, user := setupRedis(t)
 	defer mr.Close()
@@ -136,11 +166,11 @@ func TestRevokeToken(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name          string
 		setup         func()
+		name          string
 		targetKey     string
-		expectedError bool
 		expectedKeys  []string
+		expectedError bool
 	}{
 		{
 			name: "revoke existing key",
