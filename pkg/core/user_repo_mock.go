@@ -26,17 +26,17 @@ func (_m *MockUserRepo) EXPECT() *MockUserRepo_Expecter {
 	return &MockUserRepo_Expecter{mock: &_m.Mock}
 }
 
-// AddAPIKey provides a mock function with given fields: ctx, userID, apiKeyID, expiresIn
-func (_m *MockUserRepo) AddAPIKey(ctx context.Context, userID string, apiKeyID string, expiresIn time.Duration) error {
-	ret := _m.Called(ctx, userID, apiKeyID, expiresIn)
+// AddAPIKey provides a mock function with given fields: ctx, userID, apiKeyID, tokenType, expiresIn
+func (_m *MockUserRepo) AddAPIKey(ctx context.Context, userID string, apiKeyID string, tokenType TokenType, expiresIn time.Duration) error {
+	ret := _m.Called(ctx, userID, apiKeyID, tokenType, expiresIn)
 
 	if len(ret) == 0 {
 		panic("no return value specified for AddAPIKey")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, time.Duration) error); ok {
-		r0 = rf(ctx, userID, apiKeyID, expiresIn)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, TokenType, time.Duration) error); ok {
+		r0 = rf(ctx, userID, apiKeyID, tokenType, expiresIn)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -53,14 +53,15 @@ type MockUserRepo_AddAPIKey_Call struct {
 //   - ctx context.Context
 //   - userID string
 //   - apiKeyID string
+//   - tokenType TokenType
 //   - expiresIn time.Duration
-func (_e *MockUserRepo_Expecter) AddAPIKey(ctx interface{}, userID interface{}, apiKeyID interface{}, expiresIn interface{}) *MockUserRepo_AddAPIKey_Call {
-	return &MockUserRepo_AddAPIKey_Call{Call: _e.mock.On("AddAPIKey", ctx, userID, apiKeyID, expiresIn)}
+func (_e *MockUserRepo_Expecter) AddAPIKey(ctx interface{}, userID interface{}, apiKeyID interface{}, tokenType interface{}, expiresIn interface{}) *MockUserRepo_AddAPIKey_Call {
+	return &MockUserRepo_AddAPIKey_Call{Call: _e.mock.On("AddAPIKey", ctx, userID, apiKeyID, tokenType, expiresIn)}
 }
 
-func (_c *MockUserRepo_AddAPIKey_Call) Run(run func(ctx context.Context, userID string, apiKeyID string, expiresIn time.Duration)) *MockUserRepo_AddAPIKey_Call {
+func (_c *MockUserRepo_AddAPIKey_Call) Run(run func(ctx context.Context, userID string, apiKeyID string, tokenType TokenType, expiresIn time.Duration)) *MockUserRepo_AddAPIKey_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(time.Duration))
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(TokenType), args[4].(time.Duration))
 	})
 	return _c
 }
@@ -70,7 +71,7 @@ func (_c *MockUserRepo_AddAPIKey_Call) Return(_a0 error) *MockUserRepo_AddAPIKey
 	return _c
 }
 
-func (_c *MockUserRepo_AddAPIKey_Call) RunAndReturn(run func(context.Context, string, string, time.Duration) error) *MockUserRepo_AddAPIKey_Call {
+func (_c *MockUserRepo_AddAPIKey_Call) RunAndReturn(run func(context.Context, string, string, TokenType, time.Duration) error) *MockUserRepo_AddAPIKey_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -30,7 +30,7 @@ func TestListTokens(t *testing.T) {
 			name:   "single token",
 			userID: "user123",
 			keys: []KeyInfo{
-				{KeyID: "abcdef123456789", ExpiresAt: time.Date(2026, 3, 15, 10, 0, 0, 0, time.UTC)},
+				{KeyID: "abcdef123456789", Type: TokenTypeWeb, ExpiresAt: time.Date(2026, 3, 15, 10, 0, 0, 0, time.UTC)},
 			},
 			checkResp: func(t *testing.T, resp *Response) {
 				t.Helper()
@@ -43,9 +43,9 @@ func TestListTokens(t *testing.T) {
 			name:   "multiple tokens",
 			userID: "user123",
 			keys: []KeyInfo{
-				{KeyID: "aaabbb123456789", ExpiresAt: time.Date(2026, 3, 15, 10, 0, 0, 0, time.UTC)},
-				{KeyID: "cccddd987654321", ExpiresAt: time.Date(2026, 4, 20, 12, 0, 0, 0, time.UTC)},
-				{KeyID: "eeefff111222333", ExpiresAt: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)},
+				{KeyID: "aaabbb123456789", Type: TokenTypeWeb, ExpiresAt: time.Date(2026, 3, 15, 10, 0, 0, 0, time.UTC)},
+				{KeyID: "cccddd987654321", Type: TokenTypeWeb, ExpiresAt: time.Date(2026, 4, 20, 12, 0, 0, 0, time.UTC)},
+				{KeyID: "eeefff111222333", Type: TokenTypeWeb, ExpiresAt: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)},
 			},
 			checkResp: func(t *testing.T, resp *Response) {
 				t.Helper()

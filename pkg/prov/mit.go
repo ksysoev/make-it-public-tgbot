@@ -34,23 +34,26 @@ func New(cfg Config) *MIT {
 
 type generateTokenRequest struct {
 	KeyID string `json:"key_id"`
+	Type  string `json:"type"`
 	TTL   int64  `json:"ttl"`
 }
 
 type generateTokenResponse struct {
 	Token string `json:"token"`
 	KeyID string `json:"key_id"`
+	Type  string `json:"type"`
 	TTL   int64  `json:"ttl"`
 }
 
-// GenerateToken sends a request to generate an API token and returns the token along with its metadata or an error.
-func (m *MIT) GenerateToken(keyID string, ttl int64) (*core.APIToken, error) {
+// GenerateToken sends a request to generate an API token of the given type and returns the token along with its metadata or an error.
+func (m *MIT) GenerateToken(keyID string, tokenType core.TokenType, ttl int64) (*core.APIToken, error) {
 	if ttl <= 0 {
 		ttl = m.defaultTTL
 	}
 
 	req := generateTokenRequest{
 		KeyID: keyID,
+		Type:  string(tokenType),
 		TTL:   ttl,
 	}
 
@@ -78,6 +81,7 @@ func (m *MIT) GenerateToken(keyID string, ttl int64) (*core.APIToken, error) {
 	return &core.APIToken{
 		Token:     tkn.Token,
 		KeyID:     tkn.KeyID,
+		Type:      core.TokenType(tkn.Type),
 		ExpiresIn: time.Duration(tkn.TTL) * time.Second,
 	}, nil
 }

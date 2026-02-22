@@ -6,12 +6,15 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/ksysoev/make-it-public-tgbot/pkg/core"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func setupRedis(t *testing.T) (*miniredis.Miniredis, *User) {
+	t.Helper()
+
 	mr, err := miniredis.Run()
 	require.NoError(t, err)
 
@@ -41,6 +44,49 @@ func TestNew(t *testing.T) {
 	assert.NotNil(t, user.db)
 }
 
+func TestEncodeDecodeKeyMember(t *testing.T) {
+	tests := []struct {
+		tokenType      core.TokenType
+		name           string
+		keyID          string
+		expectedMember string
+		expectedType   core.TokenType
+	}{
+		{
+			name:           "web token encodes with w: prefix",
+			keyID:          "key123",
+			tokenType:      core.TokenTypeWeb,
+			expectedMember: "w:key123",
+			expectedType:   core.TokenTypeWeb,
+		},
+		{
+			name:           "tcp token encodes with t: prefix",
+			keyID:          "key456",
+			tokenType:      core.TokenTypeTCP,
+			expectedMember: "t:key456",
+			expectedType:   core.TokenTypeTCP,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			member := encodeKeyMember(tt.keyID, tt.tokenType)
+			assert.Equal(t, tt.expectedMember, member)
+
+			decodedID, decodedType := decodeKeyMember(member)
+			assert.Equal(t, tt.keyID, decodedID)
+			assert.Equal(t, tt.expectedType, decodedType)
+		})
+	}
+}
+
+func TestDecodeKeyMember_BackwardCompat(t *testing.T) {
+	// Bare members (no prefix) existed before type support — treat as web.
+	keyID, tokenType := decodeKeyMember("legacykeyid")
+	assert.Equal(t, "legacykeyid", keyID)
+	assert.Equal(t, core.TokenTypeWeb, tokenType)
+}
+
 func TestAddAPIKey(t *testing.T) {
 	mr, user := setupRedis(t)
 	defer mr.Close()
@@ -50,18 +96,45 @@ func TestAddAPIKey(t *testing.T) {
 	apiKeyID := "key123"
 	expiresIn := 3600 * time.Second
 
-	// Test successful add
-	err := user.AddAPIKey(ctx, userID, apiKeyID, expiresIn)
+	// Test successful add (web)
+	err := user.AddAPIKey(ctx, userID, apiKeyID, core.TokenTypeWeb, expiresIn)
 	assert.NoError(t, err)
 
-	// Verify key was added
+	// Verify key is retrievable
 	keys, err := user.GetAPIKeys(ctx, userID)
 	assert.NoError(t, err)
 	assert.Contains(t, keys, apiKeyID)
 
-	// Test adding the same key again (should still work)
-	err = user.AddAPIKey(ctx, userID, apiKeyID, expiresIn)
+	// Test adding the same key again (idempotent)
+	err = user.AddAPIKey(ctx, userID, apiKeyID, core.TokenTypeWeb, expiresIn)
 	assert.NoError(t, err)
+}
+
+func TestAddAPIKey_TypesAreStored(t *testing.T) {
+	mr, user := setupRedis(t)
+	defer mr.Close()
+
+	ctx := context.Background()
+	userID := "userTyped"
+
+	err := user.AddAPIKey(ctx, userID, "webkey1", core.TokenTypeWeb, 3600*time.Second)
+	require.NoError(t, err)
+
+	err = user.AddAPIKey(ctx, userID, "tcpkey1", core.TokenTypeTCP, 3600*time.Second)
+	require.NoError(t, err)
+
+	keys, err := user.GetAPIKeysWithExpiration(ctx, userID)
+	require.NoError(t, err)
+	require.Len(t, keys, 2)
+
+	// Verify types are correctly decoded.
+	typesByID := map[string]core.TokenType{}
+	for _, k := range keys {
+		typesByID[k.KeyID] = k.Type
+	}
+
+	assert.Equal(t, core.TokenTypeWeb, typesByID["webkey1"])
+	assert.Equal(t, core.TokenTypeTCP, typesByID["tcpkey1"])
 }
 
 func TestGetAPIKeys(t *testing.T) {
@@ -76,24 +149,25 @@ func TestGetAPIKeys(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, keys)
 
-	// Add a key
+	// Add a web key
 	apiKeyID := "key123"
 	expiresIn := 3600 * time.Second
-	err = user.AddAPIKey(ctx, userID, apiKeyID, expiresIn)
+	err = user.AddAPIKey(ctx, userID, apiKeyID, core.TokenTypeWeb, expiresIn)
 	assert.NoError(t, err)
 
-	// Test with one key
+	// Returns bare key ID (prefix stripped)
 	keys, err = user.GetAPIKeys(ctx, userID)
 	assert.NoError(t, err)
 	assert.Len(t, keys, 1)
 	assert.Contains(t, keys, apiKeyID)
+	assert.NotContains(t, keys, memberPrefixWeb+apiKeyID, "prefix should be stripped")
 
-	// Add another key
+	// Add a TCP key
 	apiKeyID2 := "key456"
-	err = user.AddAPIKey(ctx, userID, apiKeyID2, expiresIn)
+	err = user.AddAPIKey(ctx, userID, apiKeyID2, core.TokenTypeTCP, expiresIn)
 	assert.NoError(t, err)
 
-	// Test with multiple keys
+	// Both keys returned as bare IDs
 	keys, err = user.GetAPIKeys(ctx, userID)
 	assert.NoError(t, err)
 	assert.Len(t, keys, 2)
@@ -101,17 +175,33 @@ func TestGetAPIKeys(t *testing.T) {
 	assert.Contains(t, keys, apiKeyID2)
 
 	// Test expired keys are removed
-	// Set the time to future to make the keys expire
 	mr.FastForward(expiresIn + ttlOffset + time.Second)
 
-	// Manually delete the keys to simulate expiration
 	redisKey := user.keyPrefix + apiKeyPrefix + userID
 	user.db.Del(ctx, redisKey)
 
-	// Keys should be empty after deletion
 	keys, err = user.GetAPIKeys(ctx, userID)
 	assert.NoError(t, err)
 	assert.Empty(t, keys)
+}
+
+func TestGetAPIKeys_BackwardCompat(t *testing.T) {
+	// Bare keyIDs (legacy format) stored without prefix should be returned as-is.
+	mr, user := setupRedis(t)
+	defer mr.Close()
+
+	ctx := context.Background()
+	userID := "legacyUser"
+	redisKey := user.keyPrefix + apiKeyPrefix + userID
+
+	// Insert a bare member directly (simulating legacy data)
+	score := float64(time.Now().Add(time.Hour).Unix())
+	err := user.db.ZAdd(ctx, redisKey, redis.Z{Score: score, Member: "barekey123"}).Err()
+	require.NoError(t, err)
+
+	keys, err := user.GetAPIKeys(ctx, userID)
+	require.NoError(t, err)
+	assert.Contains(t, keys, "barekey123")
 }
 
 func TestGetAPIKeysWithExpiration(t *testing.T) {
@@ -126,22 +216,43 @@ func TestGetAPIKeysWithExpiration(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, keys)
 
-	// Add keyB with a valid 48h expiry via AddAPIKey
-	err = user.AddAPIKey(ctx, userID, "keyB", 48*time.Hour)
+	// Add a web key
+	err = user.AddAPIKey(ctx, userID, "keyB", core.TokenTypeWeb, 48*time.Hour)
 	require.NoError(t, err)
 
-	// Directly insert keyA with an already-expired score (in the past) to simulate expiry
+	// Directly insert an expired entry to simulate expiry
 	redisKey := user.keyPrefix + apiKeyPrefix + userID
-	expiredScore := float64(time.Now().Add(-time.Hour).Unix()) // score in the past
-	err = user.db.ZAdd(ctx, redisKey, redis.Z{Score: expiredScore, Member: "keyA"}).Err()
+	expiredScore := float64(time.Now().Add(-time.Hour).Unix())
+	err = user.db.ZAdd(ctx, redisKey, redis.Z{Score: expiredScore, Member: encodeKeyMember("keyA", core.TokenTypeWeb)}).Err()
 	require.NoError(t, err)
 
-	// GetAPIKeysWithExpiration should return only keyB; keyA is already expired
+	// Only keyB should be returned; keyA is expired
 	keys, err = user.GetAPIKeysWithExpiration(ctx, userID)
 	assert.NoError(t, err)
-	assert.Len(t, keys, 1)
+	require.Len(t, keys, 1)
 	assert.Equal(t, "keyB", keys[0].KeyID)
+	assert.Equal(t, core.TokenTypeWeb, keys[0].Type)
 	assert.True(t, keys[0].ExpiresAt.After(time.Now()), "expiry should be in the future")
+}
+
+func TestGetAPIKeysWithExpiration_BackwardCompat(t *testing.T) {
+	// Bare members (no prefix) should be returned with TokenTypeWeb.
+	mr, user := setupRedis(t)
+	defer mr.Close()
+
+	ctx := context.Background()
+	userID := "legacyUser2"
+	redisKey := user.keyPrefix + apiKeyPrefix + userID
+
+	score := float64(time.Now().Add(time.Hour).Unix())
+	err := user.db.ZAdd(ctx, redisKey, redis.Z{Score: score, Member: "legacykey"}).Err()
+	require.NoError(t, err)
+
+	keys, err := user.GetAPIKeysWithExpiration(ctx, userID)
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+	assert.Equal(t, "legacykey", keys[0].KeyID)
+	assert.Equal(t, core.TokenTypeWeb, keys[0].Type)
 }
 
 func TestClose(t *testing.T) {
@@ -158,11 +269,10 @@ func TestRevokeToken(t *testing.T) {
 
 	ctx := context.Background()
 	userID := "user123"
-	apiKeyID := "key123"
 	expiresIn := 3600 * time.Second
 
-	// Add a key to revoke
-	err := user.AddAPIKey(ctx, userID, apiKeyID, expiresIn)
+	// Add a key to revoke (as web)
+	err := user.AddAPIKey(ctx, userID, "key123", core.TokenTypeWeb, expiresIn)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -173,18 +283,15 @@ func TestRevokeToken(t *testing.T) {
 		expectedError bool
 	}{
 		{
-			name: "revoke existing key",
-			setup: func() {
-				// Key already added in setup
-			},
-			targetKey:     apiKeyID,
+			name:          "revoke existing web key",
+			setup:         func() {},
+			targetKey:     "key123",
 			expectedError: false,
 			expectedKeys:  []string{},
 		},
 		{
 			name: "revoke non-existing key",
 			setup: func() {
-				// Clear all keys explicitly
 				mr.FlushAll()
 			},
 			targetKey:     "non_existent_key",
@@ -194,11 +301,10 @@ func TestRevokeToken(t *testing.T) {
 		{
 			name: "revoke key when user has multiple keys",
 			setup: func() {
-				anotherAPIKeyID := "key456"
-				err := user.AddAPIKey(ctx, userID, anotherAPIKeyID, expiresIn)
-				require.NoError(t, err)
+				_ = user.AddAPIKey(ctx, userID, "key123", core.TokenTypeWeb, expiresIn)
+				_ = user.AddAPIKey(ctx, userID, "key456", core.TokenTypeWeb, expiresIn)
 			},
-			targetKey:     apiKeyID,
+			targetKey:     "key123",
 			expectedError: false,
 			expectedKeys:  []string{"key456"},
 		},
@@ -219,4 +325,43 @@ func TestRevokeToken(t *testing.T) {
 			assert.ElementsMatch(t, tt.expectedKeys, keys)
 		})
 	}
+}
+
+func TestRevokeToken_TCPKey(t *testing.T) {
+	mr, user := setupRedis(t)
+	defer mr.Close()
+
+	ctx := context.Background()
+	userID := "userTCP"
+
+	err := user.AddAPIKey(ctx, userID, "tcpkey1", core.TokenTypeTCP, 3600*time.Second)
+	require.NoError(t, err)
+
+	err = user.RevokeToken(ctx, userID, "tcpkey1")
+	require.NoError(t, err)
+
+	keys, err := user.GetAPIKeys(ctx, userID)
+	require.NoError(t, err)
+	assert.Empty(t, keys)
+}
+
+func TestRevokeToken_LegacyBareKey(t *testing.T) {
+	// Revoking a key stored as a bare (legacy) member should work.
+	mr, user := setupRedis(t)
+	defer mr.Close()
+
+	ctx := context.Background()
+	userID := "legacyRevokeUser"
+	redisKey := user.keyPrefix + apiKeyPrefix + userID
+
+	score := float64(time.Now().Add(time.Hour).Unix())
+	err := user.db.ZAdd(ctx, redisKey, redis.Z{Score: score, Member: "barekey"}).Err()
+	require.NoError(t, err)
+
+	err = user.RevokeToken(ctx, userID, "barekey")
+	require.NoError(t, err)
+
+	keys, err := user.GetAPIKeys(ctx, userID)
+	require.NoError(t, err)
+	assert.Empty(t, keys)
 }

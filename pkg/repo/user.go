@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ksysoev/make-it-public-tgbot/pkg/core"
@@ -16,7 +17,37 @@ const (
 	apiKeyPrefix  = "USER_KEYS::"
 	convKeyPrefix = "CONV::"
 	convTTL       = 24 * time.Hour // Default TTL for conversations
+
+	// memberPrefixWeb is the sorted-set member prefix for web tokens.
+	memberPrefixWeb = "w:"
+	// memberPrefixTCP is the sorted-set member prefix for TCP tokens.
+	memberPrefixTCP = "t:"
 )
+
+// encodeKeyMember encodes a key ID and its token type into the Redis sorted-set member string.
+// Format: "w:<keyID>" for web, "t:<keyID>" for TCP.
+func encodeKeyMember(keyID string, tokenType core.TokenType) string {
+	switch tokenType {
+	case core.TokenTypeTCP:
+		return memberPrefixTCP + keyID
+	default:
+		return memberPrefixWeb + keyID
+	}
+}
+
+// decodeKeyMember decodes a Redis sorted-set member back into a key ID and token type.
+// Bare members (no known prefix) are treated as web for backward compatibility.
+func decodeKeyMember(member string) (keyID string, tokenType core.TokenType) {
+	switch {
+	case strings.HasPrefix(member, memberPrefixWeb):
+		return member[len(memberPrefixWeb):], core.TokenTypeWeb
+	case strings.HasPrefix(member, memberPrefixTCP):
+		return member[len(memberPrefixTCP):], core.TokenTypeTCP
+	default:
+		// Backward compat: treat bare keyID (pre-type-support) as web.
+		return member, core.TokenTypeWeb
+	}
+}
 
 type Config struct {
 	RedisAddr string `mapstructure:"redis_addr"`
@@ -47,38 +78,41 @@ func (u *User) Close() error {
 	return u.db.Close()
 }
 
-// AddAPIKey adds an API key with an expiration time to the user's Redis store. Returns an error if the operation fails.
-func (u *User) AddAPIKey(ctx context.Context, userID string, apiKeyID string, expiresIn time.Duration) error {
+// AddAPIKey adds an API key with a token type and expiration time to the user's Redis store.
+// The key is stored as a prefixed member ("w:<keyID>" or "t:<keyID>") in a sorted set.
+// Returns an error if the operation fails.
+func (u *User) AddAPIKey(ctx context.Context, userID string, apiKeyID string, tokenType core.TokenType, expiresIn time.Duration) error {
 	redisKey := u.keyPrefix + apiKeyPrefix + userID
+	member := encodeKeyMember(apiKeyID, tokenType)
 
 	_, err := u.db.ZAdd(ctx, redisKey, redis.Z{
 		Score:  float64(time.Now().Add(expiresIn - ttlOffset).Unix()),
-		Member: apiKeyID,
+		Member: member,
 	}).Result()
 
 	if err != nil {
 		return fmt.Errorf("failed to add API key: %w", err)
 	}
 
-	// If the result is 0, it means the member already exists in the sorted set
-	// This is not an error, so we don't need to return one
-
+	// If the result is 0, the member already exists — not an error.
 	return nil
 }
 
-// GetAPIKeys retrieves all API keys for a user from the Redis store. Returns a slice of API keys and an error if the operation fails.
+// GetAPIKeys retrieves all non-expired API key IDs for a user from the Redis store.
+// Prefixes are stripped; bare legacy members are returned as-is (backward compat).
+// Returns a slice of bare key IDs and an error if the operation fails.
 func (u *User) GetAPIKeys(ctx context.Context, userID string) ([]string, error) {
 	redisKey := u.keyPrefix + apiKeyPrefix + userID
 
-	// clean up expired keys
+	// Clean up expired keys.
 	now := time.Now().Unix()
 	_, err := u.db.ZRemRangeByScore(ctx, redisKey, "-inf", fmt.Sprintf("%d", now)).Result()
 	if err != nil {
 		return nil, fmt.Errorf("failed to remove expired API keys: %w", err)
 	}
 
-	// Get keys with scores greater than current time (not expired)
-	keys, err := u.db.ZRangeArgs(ctx, redis.ZRangeArgs{
+	// Get keys with scores greater than current time (not expired).
+	members, err := u.db.ZRangeArgs(ctx, redis.ZRangeArgs{
 		Key:     redisKey,
 		ByScore: true,
 		Start:   fmt.Sprintf("%d", now),
@@ -88,23 +122,29 @@ func (u *User) GetAPIKeys(ctx context.Context, userID string) ([]string, error) 
 		return nil, fmt.Errorf("failed to get API keys: %w", err)
 	}
 
+	keys := make([]string, len(members))
+	for i, m := range members {
+		keyID, _ := decodeKeyMember(m)
+		keys[i] = keyID
+	}
+
 	return keys, nil
 }
 
-// GetAPIKeysWithExpiration retrieves all active API keys for a user along with their expiration times.
-// Returns a slice of KeyInfo containing the key ID and expiration time, or an error if the operation fails.
+// GetAPIKeysWithExpiration retrieves all active API keys for a user along with their expiration times
+// and token types. Returns a slice of KeyInfo or an error if the operation fails.
 func (u *User) GetAPIKeysWithExpiration(ctx context.Context, userID string) ([]core.KeyInfo, error) {
 	redisKey := u.keyPrefix + apiKeyPrefix + userID
 
 	now := time.Now().Unix()
 
-	// clean up expired keys
+	// Clean up expired keys.
 	_, err := u.db.ZRemRangeByScore(ctx, redisKey, "-inf", fmt.Sprintf("%d", now)).Result()
 	if err != nil {
 		return nil, fmt.Errorf("failed to remove expired API keys: %w", err)
 	}
 
-	// Get keys with scores greater than current time (not expired), including scores
+	// Get keys with scores greater than current time, including scores.
 	zSlice, err := u.db.ZRangeByScoreWithScores(ctx, redisKey, &redis.ZRangeBy{
 		Min: fmt.Sprintf("%d", now),
 		Max: "+inf",
@@ -115,26 +155,44 @@ func (u *User) GetAPIKeysWithExpiration(ctx context.Context, userID string) ([]c
 
 	keys := make([]core.KeyInfo, len(zSlice))
 	for i, z := range zSlice {
-		// Score is (expiresAt - ttlOffset), so restore the original expiration
+		// Score is (expiresAt - ttlOffset), so restore the original expiration.
 		expiresAt := time.Unix(int64(z.Score), 0).Add(ttlOffset)
+		keyID, tokenType := decodeKeyMember(z.Member.(string))
 		keys[i] = core.KeyInfo{
-			KeyID:     z.Member.(string),
+			KeyID:     keyID,
 			ExpiresAt: expiresAt,
+			Type:      tokenType,
 		}
 	}
 
 	return keys, nil
 }
 
-// RevokeToken removes the specified API key for a user from the Redis store. Returns an error if the operation fails.
+// RevokeToken removes the specified API key for a user from the Redis store.
+// It handles both prefixed members (new format) and bare members (legacy format).
+// Returns an error if the operation fails.
 func (u *User) RevokeToken(ctx context.Context, userID string, apiKeyID string) error {
 	redisKey := u.keyPrefix + apiKeyPrefix + userID
 
-	_, err := u.db.ZRem(ctx, redisKey, apiKeyID).Result()
-	if err != nil {
-		return fmt.Errorf("failed to revoke API key: %w", err)
+	// Try all possible encodings: prefixed web, prefixed TCP, and bare (legacy).
+	candidates := []string{
+		encodeKeyMember(apiKeyID, core.TokenTypeWeb),
+		encodeKeyMember(apiKeyID, core.TokenTypeTCP),
+		apiKeyID, // legacy bare member
 	}
 
+	for _, candidate := range candidates {
+		removed, err := u.db.ZRem(ctx, redisKey, candidate).Result()
+		if err != nil {
+			return fmt.Errorf("failed to revoke API key: %w", err)
+		}
+
+		if removed > 0 {
+			return nil
+		}
+	}
+
+	// Member not found — not an error; it may have already expired or been removed.
 	return nil
 }
 
