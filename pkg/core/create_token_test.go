@@ -14,53 +14,31 @@ import (
 
 func TestCreateToken(t *testing.T) {
 	tests := []struct {
-		getKeysErr      error
+		getConvErr      error
 		saveConvErr     error
 		name            string
 		userID          string
 		expectedMsg     string
 		expectedErr     string
-		existingKeys    []string
 		expectedAnswers []string
-		expectSaveConv  bool
 	}{
 		{
-			name:            "under limit - asks for expiration",
+			name:            "asks for token type selection",
 			userID:          "user123",
-			existingKeys:    []string{},
-			expectedMsg:     "What is the expiration period for your new API token?",
-			expectedAnswers: []string{"1 day", "7 days", "30 days", "90 days"},
-			expectSaveConv:  true,
+			expectedMsg:     "What type of token do you want to create?",
+			expectedAnswers: []string{"Web", "TCP"},
 		},
 		{
-			name:            "at limit - asks to regenerate",
-			userID:          "user123",
-			existingKeys:    []string{"key1", "key2", "key3"},
-			expectedMsg:     "You've reached the maximum of 3 API tokens. Do you want to regenerate an existing one?",
-			expectedAnswers: []string{"Yes", "No"},
-			expectSaveConv:  true,
-		},
-		{
-			name:        "get keys error",
+			name:        "get conversation error",
 			userID:      "user123",
-			getKeysErr:  errors.New("get keys error"),
-			expectedErr: "failed to get API keys: get keys error",
+			getConvErr:  errors.New("redis error"),
+			expectedErr: "failed to get conversation: redis error",
 		},
 		{
-			name:           "save conversation error when at limit",
-			userID:         "user123",
-			existingKeys:   []string{"key1", "key2", "key3"},
-			saveConvErr:    errors.New("save conversation error"),
-			expectedErr:    "failed to save conversation: save conversation error",
-			expectSaveConv: true,
-		},
-		{
-			name:           "save conversation error when under limit",
-			userID:         "user123",
-			existingKeys:   []string{},
-			saveConvErr:    errors.New("save conversation error"),
-			expectedErr:    "failed to save conversation: save conversation error",
-			expectSaveConv: true,
+			name:        "save conversation error",
+			userID:      "user123",
+			saveConvErr: errors.New("save error"),
+			expectedErr: "failed to save conversation: save error",
 		},
 	}
 
@@ -69,14 +47,11 @@ func TestCreateToken(t *testing.T) {
 			repo := NewMockUserRepo(t)
 			prov := NewMockMITProv(t)
 
-			repo.On("GetAPIKeys", mock.Anything, tt.userID).Return(tt.existingKeys, tt.getKeysErr)
-
-			if tt.getKeysErr == nil {
-				repo.On("GetConversation", mock.Anything, tt.userID).Return(conv.New(tt.userID), nil).Maybe()
-
-				if tt.expectSaveConv {
-					repo.On("SaveConversation", mock.Anything, mock.AnythingOfType("*conv.Conversation")).Return(tt.saveConvErr)
-				}
+			if tt.getConvErr != nil {
+				repo.On("GetConversation", mock.Anything, tt.userID).Return(nil, tt.getConvErr)
+			} else {
+				repo.On("GetConversation", mock.Anything, tt.userID).Return(conv.New(tt.userID), nil)
+				repo.On("SaveConversation", mock.Anything, mock.AnythingOfType("*conv.Conversation")).Return(tt.saveConvErr)
 			}
 
 			svc := New(repo, prov)
@@ -92,6 +67,121 @@ func TestCreateToken(t *testing.T) {
 				require.NotNil(t, resp)
 				assert.Equal(t, tt.expectedMsg, resp.Message)
 				assert.Equal(t, tt.expectedAnswers, resp.Answers)
+			}
+
+			repo.AssertExpectations(t)
+			prov.AssertExpectations(t)
+		})
+	}
+}
+
+func TestHandleSelectTokenTypeResult(t *testing.T) {
+	userID := "user123"
+
+	tests := []struct {
+		getKeysErr      error
+		saveConvErr     error
+		name            string
+		answer          string
+		expectedMsg     string
+		expectedErr     string
+		existingKeys    []KeyInfo
+		expectedAnswers []string
+		expectSaveConv  bool
+	}{
+		{
+			name:            "web under limit - asks for expiration",
+			answer:          "Web",
+			existingKeys:    []KeyInfo{},
+			expectedMsg:     "What is the expiration period for your new API token?",
+			expectedAnswers: []string{"1 day", "7 days", "30 days", "90 days"},
+			expectSaveConv:  true,
+		},
+		{
+			name:            "TCP under limit - asks for expiration",
+			answer:          "TCP",
+			existingKeys:    []KeyInfo{},
+			expectedMsg:     "What is the expiration period for your new API token?",
+			expectedAnswers: []string{"1 day", "7 days", "30 days", "90 days"},
+			expectSaveConv:  true,
+		},
+		{
+			name:   "web at limit - asks to regenerate",
+			answer: "Web",
+			existingKeys: []KeyInfo{
+				{KeyID: "key1", Type: TokenTypeWeb, ExpiresAt: time.Now().Add(24 * time.Hour)},
+				{KeyID: "key2", Type: TokenTypeWeb, ExpiresAt: time.Now().Add(24 * time.Hour)},
+				{KeyID: "key3", Type: TokenTypeWeb, ExpiresAt: time.Now().Add(24 * time.Hour)},
+			},
+			expectedMsg:     "You've reached the maximum of 3 web tokens. Do you want to regenerate an existing one?",
+			expectedAnswers: []string{"Yes", "No"},
+			expectSaveConv:  true,
+		},
+		{
+			name:   "TCP at limit - asks to regenerate",
+			answer: "TCP",
+			existingKeys: []KeyInfo{
+				{KeyID: "tcpkey1", Type: TokenTypeTCP, ExpiresAt: time.Now().Add(24 * time.Hour)},
+			},
+			expectedMsg:     "You've reached the maximum of 1 TCP token. Do you want to regenerate it?",
+			expectedAnswers: []string{"Yes", "No"},
+			expectSaveConv:  true,
+		},
+		{
+			name:         "invalid type selection",
+			answer:       "FTP",
+			existingKeys: []KeyInfo{},
+			expectedMsg:  "Invalid token type selected. Please choose Web or TCP.",
+		},
+		{
+			name:        "wrong number of answers",
+			answer:      "",
+			expectedErr: "expected exactly one answer for token type question, got 0",
+		},
+		{
+			name:        "get keys error",
+			answer:      "Web",
+			getKeysErr:  errors.New("redis error"),
+			expectedErr: "failed to get API keys: redis error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := NewMockUserRepo(t)
+			prov := NewMockMITProv(t)
+
+			var answers []conv.QuestionAnswer
+			if tt.answer != "" {
+				answers = []conv.QuestionAnswer{{Answer: tt.answer}}
+			}
+
+			if tt.answer != "" && tt.answer != "FTP" && tt.expectedErr == "" {
+				repo.On("GetAPIKeysWithExpiration", mock.Anything, userID).Return(tt.existingKeys, tt.getKeysErr)
+			} else if tt.getKeysErr != nil {
+				repo.On("GetAPIKeysWithExpiration", mock.Anything, userID).Return(nil, tt.getKeysErr)
+			}
+
+			if tt.expectSaveConv {
+				repo.On("GetConversation", mock.Anything, userID).Return(conv.New(userID), nil)
+				repo.On("SaveConversation", mock.Anything, mock.AnythingOfType("*conv.Conversation")).Return(tt.saveConvErr)
+			}
+
+			svc := New(repo, prov)
+
+			resp, err := svc.handleSelectTokenTypeResult(context.Background(), userID, answers)
+
+			if tt.expectedErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedErr)
+				assert.Nil(t, resp)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, tt.expectedMsg, resp.Message)
+				if tt.expectedAnswers != nil {
+					assert.Equal(t, tt.expectedAnswers, resp.Answers)
+				}
 			}
 
 			repo.AssertExpectations(t)
@@ -156,8 +246,8 @@ func TestHandleTokenExistsResult(t *testing.T) {
 func TestHandleTokenExistsResult_Yes(t *testing.T) {
 	userID := "user123"
 	keys := []KeyInfo{
-		{KeyID: "abcdef123456", ExpiresAt: time.Now().Add(24 * time.Hour)},
-		{KeyID: "xyz987654321", ExpiresAt: time.Now().Add(48 * time.Hour)},
+		{KeyID: "abcdef123456", Type: TokenTypeWeb, ExpiresAt: time.Now().Add(24 * time.Hour)},
+		{KeyID: "xyz987654321", Type: TokenTypeWeb, ExpiresAt: time.Now().Add(48 * time.Hour)},
 	}
 
 	repo := NewMockUserRepo(t)
@@ -172,7 +262,7 @@ func TestHandleTokenExistsResult_Yes(t *testing.T) {
 	svc := New(repo, prov)
 
 	answers := []conv.QuestionAnswer{
-		{Answer: "Yes"},
+		{Answer: "Yes", Field: string(TokenTypeWeb)},
 	}
 
 	resp, err := svc.handleTokenExistsResult(context.Background(), userID, answers)
@@ -181,6 +271,39 @@ func TestHandleTokenExistsResult_Yes(t *testing.T) {
 	require.NotNil(t, resp)
 	assert.Equal(t, "Which token do you want to regenerate?", resp.Message)
 	assert.Len(t, resp.Answers, 2)
+
+	repo.AssertExpectations(t)
+	prov.AssertExpectations(t)
+}
+
+func TestHandleTokenExistsResult_Yes_TCP(t *testing.T) {
+	userID := "user123"
+	keys := []KeyInfo{
+		{KeyID: "tcpkey123456", Type: TokenTypeTCP, ExpiresAt: time.Now().Add(24 * time.Hour)},
+	}
+
+	repo := NewMockUserRepo(t)
+	prov := NewMockMITProv(t)
+
+	repo.On("GetAPIKeysWithExpiration", mock.Anything, userID).Return(keys, nil)
+	// TCP with 1 token at limit: skips selection, goes directly to expiration
+	repo.On("GetConversation", mock.Anything, userID).Return(conv.New(userID), nil)
+	repo.On("SaveConversation", mock.Anything, mock.MatchedBy(func(c *conv.Conversation) bool {
+		return c.ID == userID && c.State == StateTokenRegenerate
+	})).Return(nil)
+
+	svc := New(repo, prov)
+
+	answers := []conv.QuestionAnswer{
+		{Answer: "Yes", Field: string(TokenTypeTCP)},
+	}
+
+	resp, err := svc.handleTokenExistsResult(context.Background(), userID, answers)
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, "What is the expiration period for your new API token?", resp.Message)
+	assert.Equal(t, []string{"1 day", "7 days", "30 days", "90 days"}, resp.Answers)
 
 	repo.AssertExpectations(t)
 	prov.AssertExpectations(t)
@@ -255,11 +378,11 @@ func TestHandleNewTokenResult(t *testing.T) {
 			prov := NewMockMITProv(t)
 
 			if tt.token != nil || tt.generateErr != nil {
-				prov.On("GenerateToken", "", mock.AnythingOfType("int64")).Return(tt.token, tt.generateErr)
+				prov.On("GenerateToken", "", TokenTypeWeb, mock.AnythingOfType("int64")).Return(tt.token, tt.generateErr)
 			}
 
 			if tt.token != nil && tt.generateErr == nil {
-				repo.On("AddAPIKey", mock.Anything, tt.userID, tt.token.KeyID, tt.token.ExpiresIn).Return(tt.addKeyErr)
+				repo.On("AddAPIKey", mock.Anything, tt.userID, tt.token.KeyID, TokenTypeWeb, tt.token.ExpiresIn).Return(tt.addKeyErr)
 			}
 
 			svc := New(repo, prov)
@@ -298,13 +421,13 @@ func TestHandleTokenRegenerateResult(t *testing.T) {
 
 		prov.On("RevokeToken", keyID).Return(nil)
 		repo.On("RevokeToken", mock.Anything, userID, keyID).Return(nil)
-		prov.On("GenerateToken", keyID, mock.AnythingOfType("int64")).Return(token, nil)
-		repo.On("AddAPIKey", mock.Anything, userID, keyID, token.ExpiresIn).Return(nil)
+		prov.On("GenerateToken", keyID, TokenTypeWeb, mock.AnythingOfType("int64")).Return(token, nil)
+		repo.On("AddAPIKey", mock.Anything, userID, keyID, TokenTypeWeb, token.ExpiresIn).Return(nil)
 
 		svc := New(repo, prov)
 
 		answers := []conv.QuestionAnswer{
-			{Answer: "7 days", Field: keyID},
+			{Answer: "7 days", Field: encodeTokenField(TokenTypeWeb, keyID)},
 		}
 
 		resp, err := svc.handleTokenRegenerateResult(context.Background(), userID, answers)
@@ -321,7 +444,7 @@ func TestHandleTokenRegenerateResult(t *testing.T) {
 		svc := New(NewMockUserRepo(t), NewMockMITProv(t))
 
 		answers := []conv.QuestionAnswer{
-			{Answer: "7 days", Field: ""},
+			{Answer: "7 days", Field: encodeTokenField(TokenTypeWeb, "")},
 		}
 
 		_, err := svc.handleTokenRegenerateResult(context.Background(), userID, answers)
@@ -333,7 +456,7 @@ func TestHandleTokenRegenerateResult(t *testing.T) {
 		svc := New(NewMockUserRepo(t), NewMockMITProv(t))
 
 		answers := []conv.QuestionAnswer{
-			{Answer: "invalid", Field: keyID},
+			{Answer: "invalid", Field: encodeTokenField(TokenTypeWeb, keyID)},
 		}
 
 		resp, err := svc.handleTokenRegenerateResult(context.Background(), userID, answers)
@@ -350,7 +473,9 @@ func TestHandleSelectTokenToRegenerateResult(t *testing.T) {
 		repo := NewMockUserRepo(t)
 		prov := NewMockMITProv(t)
 
-		repo.On("GetAPIKeys", mock.Anything, userID).Return([]string{keyID}, nil)
+		repo.On("GetAPIKeysWithExpiration", mock.Anything, userID).Return([]KeyInfo{
+			{KeyID: keyID, Type: TokenTypeWeb, ExpiresAt: time.Now().Add(24 * time.Hour)},
+		}, nil)
 		repo.On("GetConversation", mock.Anything, userID).Return(conv.New(userID), nil)
 		repo.On("SaveConversation", mock.Anything, mock.MatchedBy(func(c *conv.Conversation) bool {
 			return c.State == StateTokenRegenerate
@@ -359,7 +484,7 @@ func TestHandleSelectTokenToRegenerateResult(t *testing.T) {
 		svc := New(repo, prov)
 
 		answers := []conv.QuestionAnswer{
-			{Answer: keyID[:keyIDDisplayLen] + " (exp: 2026-03-01)"},
+			{Answer: keyID[:keyIDDisplayLen] + " (exp: 2026-03-01)", Field: string(TokenTypeWeb)},
 		}
 
 		resp, err := svc.handleSelectTokenToRegenerateResult(context.Background(), userID, answers)
