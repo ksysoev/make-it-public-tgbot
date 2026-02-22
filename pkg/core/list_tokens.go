@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	listTokensHeader = "🔑 Your Active API Tokens (%d/%d)\n\n"
-	listTokensEntry  = "%d. %s...\n   ⏱ Expires: %s\n"
+	listTokensHeader = "🔑 Your Active API Tokens (Web: %d/%d, TCP: %d/%d)\n\n"
+	listTokensEntry  = "%d. [%s] %s...\n   ⏱ Expires: %s\n"
 	listTokensFooter = "\nUse /new_token to create a new token or /revoke_token to revoke one."
 	listTokensKeyLen = 12 // number of key ID characters shown in the listing
 )
@@ -26,9 +26,19 @@ func (s *Service) ListTokens(ctx context.Context, userID string) (*Response, err
 		return nil, ErrTokenNotFound
 	}
 
+	var webCount, tcpCount int
+
+	for _, k := range keys {
+		if k.Type == TokenTypeTCP {
+			tcpCount++
+		} else {
+			webCount++
+		}
+	}
+
 	var sb strings.Builder
 
-	fmt.Fprintf(&sb, listTokensHeader, len(keys), maxTokensPerUser)
+	fmt.Fprintf(&sb, listTokensHeader, webCount, maxWebTokensPerUser, tcpCount, maxTCPTokensPerUser)
 
 	for i, k := range keys {
 		keyDisplay := k.KeyID
@@ -37,7 +47,7 @@ func (s *Service) ListTokens(ctx context.Context, userID string) (*Response, err
 		}
 
 		expiresAt := k.ExpiresAt.Format(time.DateTime)
-		fmt.Fprintf(&sb, listTokensEntry, i+1, keyDisplay, expiresAt)
+		fmt.Fprintf(&sb, listTokensEntry, i+1, string(k.Type), keyDisplay, expiresAt)
 	}
 
 	sb.WriteString(listTokensFooter)

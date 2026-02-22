@@ -15,7 +15,7 @@ var (
 
 // UserRepo defines the storage operations required by the core service.
 type UserRepo interface {
-	AddAPIKey(ctx context.Context, userID string, apiKeyID string, expiresIn time.Duration) error
+	AddAPIKey(ctx context.Context, userID string, apiKeyID string, tokenType TokenType, expiresIn time.Duration) error
 	GetAPIKeys(ctx context.Context, userID string) ([]string, error)
 	GetAPIKeysWithExpiration(ctx context.Context, userID string) ([]KeyInfo, error)
 	RevokeToken(ctx context.Context, userID string, apiKeyID string) error
@@ -24,8 +24,10 @@ type UserRepo interface {
 	DeleteConversation(ctx context.Context, conversationID string) error
 }
 
+// MITProv defines the external API operations for managing tokens.
+// GenerateToken creates a new token of the given type; RevokeToken removes it.
 type MITProv interface {
-	GenerateToken(keyID string, ttl int64) (*APIToken, error)
+	GenerateToken(keyID string, tokenType TokenType, ttl int64) (*APIToken, error)
 	RevokeToken(keyID string) error
 }
 
@@ -94,6 +96,8 @@ func (s *Service) HandleMessage(ctx context.Context, userID string, message stri
 	}
 
 	switch state {
+	case StateSelectTokenType:
+		return s.handleSelectTokenTypeResult(ctx, userID, res)
 	case StateTokenExists:
 		return s.handleTokenExistsResult(ctx, userID, res)
 	case StateNewToken:

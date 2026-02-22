@@ -21,10 +21,14 @@ Use /help to see available commands.`
 
 /start - Show welcome message
 /help - Display this help message
-/new_token - Generate a new API token (up to 3)
+/new_token - Generate a new API token (up to 3 web + 1 TCP)
 /my_tokens - List your active API tokens
 /revoke_token - Revoke an API token
 /cancel - Cancel the current question
+
+Token Types:
+Web  - HTTP/HTTPS tunnel token (max 3 per user)
+TCP  - Raw TCP tunnel token (max 1 per user)
 
 About Make It Public:
 Make It Public allows you to securely expose services that are behind NAT or firewalls to the internet.`
