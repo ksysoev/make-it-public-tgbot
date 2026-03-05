@@ -27,7 +27,7 @@ Use /help to see available commands.`
 /cancel - Cancel the current question
 
 Token Types:
-Web  - HTTP/HTTPS tunnel token (max 3 per user)
+Web  - HTTP/HTTPS tunnel token (max 3 per user), supports a custom subdomain (e.g. myapp.make-it-public.dev)
 TCP  - Raw TCP tunnel token (max 1 per user)
 
 About Make It Public:
