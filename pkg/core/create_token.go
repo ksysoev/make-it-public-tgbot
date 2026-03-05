@@ -139,20 +139,26 @@ func (s *Service) handleSelectTokenTypeResult(ctx context.Context, userID string
 		return s.askToRegenerateToken(ctx, userID, tokenType)
 	}
 
+	if tokenType == TokenTypeTCP {
+		return s.askForTokenExpirationWithKeyID(ctx, userID, StateNewToken, tokenType, "")
+	}
+
 	return s.askForKeyID(ctx, userID, tokenType)
 }
 
-// askForKeyID starts a conversation asking the user to enter a custom key ID or skip to auto-generate.
+// askForKeyID starts a conversation asking the user to enter a custom subdomain (key ID) or skip to auto-generate.
 // The token type is encoded in the question Field for use by handleEnterKeyIDResult.
+// This step is only used for web tokens, where the key ID defines the public subdomain
+// (e.g. "myapp" → myapp.make-it-public.dev).
 func (s *Service) askForKeyID(ctx context.Context, userID string, tokenType TokenType) (*Response, error) {
 	return s.askForKeyIDWithPrompt(ctx, userID, tokenType,
-		"Enter a custom key ID for your token, or send \"Skip\" to generate one automatically.")
+		"Enter a custom subdomain for your web token (e.g. \"myapp\" will give you myapp.make-it-public.dev), or send \"Skip\" to generate one automatically.")
 }
 
 // askForKeyIDWithError re-enters the key ID step with an error message prepended to the prompt.
 // Used when the API rejects the previously entered key ID (409 Conflict or 400 Bad Request).
 func (s *Service) askForKeyIDWithError(ctx context.Context, userID string, tokenType TokenType, errMsg string) (*Response, error) {
-	prompt := errMsg + "\n\nEnter a different key ID, or send \"Skip\" to generate one automatically."
+	prompt := errMsg + "\n\nEnter a different subdomain, or send \"Skip\" to generate one automatically."
 	return s.askForKeyIDWithPrompt(ctx, userID, tokenType, prompt)
 }
 
