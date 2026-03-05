@@ -96,6 +96,7 @@ func TestQuestions_ProcessAnswer(t *testing.T) {
 		name       string
 		answer     string
 		wantAnswer string
+		wantField  string
 		qs         Questions
 		wantPos    int
 		wantDone   bool
@@ -154,6 +155,50 @@ func TestQuestions_ProcessAnswer(t *testing.T) {
 			wantErr: true,
 			wantPos: 1,
 		},
+		{
+			name: "free-text question - not done",
+			qs: Questions{
+				QAPairs: []QuestionAnswer{
+					{Question: Question{Text: "Enter a key ID:", Answers: nil}},
+					{Question: Question{Text: "How old are you?", Answers: []string{"20", "30"}}},
+				},
+				Position: 0,
+			},
+			answer:     "my-custom-key",
+			wantDone:   false,
+			wantErr:    false,
+			wantPos:    1,
+			wantAnswer: "my-custom-key",
+		},
+		{
+			name: "free-text question - done",
+			qs: Questions{
+				QAPairs: []QuestionAnswer{
+					{Question: Question{Text: "Enter a key ID:", Answers: nil}},
+				},
+				Position: 0,
+			},
+			answer:     "my-custom-key",
+			wantDone:   true,
+			wantErr:    false,
+			wantPos:    1,
+			wantAnswer: "my-custom-key",
+		},
+		{
+			name: "free-text question - field is copied",
+			qs: Questions{
+				QAPairs: []QuestionAnswer{
+					{Question: Question{Text: "Enter a key ID:", Answers: nil, Field: "web"}},
+				},
+				Position: 0,
+			},
+			answer:     "my-custom-key",
+			wantDone:   true,
+			wantErr:    false,
+			wantPos:    1,
+			wantAnswer: "my-custom-key",
+			wantField:  "web",
+		},
 	}
 
 	for _, tt := range tests {
@@ -168,6 +213,9 @@ func TestQuestions_ProcessAnswer(t *testing.T) {
 			assert.Equal(t, tt.wantDone, done)
 			assert.Equal(t, tt.wantPos, tt.qs.Position)
 			assert.Equal(t, tt.wantAnswer, tt.qs.QAPairs[tt.wantPos-1].Answer)
+			if tt.wantField != "" {
+				assert.Equal(t, tt.wantField, tt.qs.QAPairs[tt.wantPos-1].Field)
+			}
 		})
 	}
 }

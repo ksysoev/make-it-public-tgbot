@@ -24,6 +24,7 @@ const (
 	StateTokenRegenerate         conv.State = "tokenRegenerate"
 	StateTokenExists             conv.State = "tokenExists"
 	StateNewToken                conv.State = "newToken"
+	StateEnterKeyID              conv.State = "enterKeyID"
 	StateSelectTokenToRegenerate conv.State = "selectTokenToRegenerate"
 	StateSelectTokenToRevoke     conv.State = "selectTokenToRevoke"
 )
@@ -31,6 +32,10 @@ const (
 var (
 	ErrInvalidExpirationPeriod = fmt.Errorf("invalid expiration period selected")
 	ErrKeyNotFound             = fmt.Errorf("selected key not found")
+	// ErrDuplicateKeyID is returned by MITProv.GenerateToken when the requested key ID is already in use.
+	ErrDuplicateKeyID = errors.New("key ID already in use")
+	// ErrInvalidKeyID is returned by MITProv.GenerateToken when the requested key ID has an invalid format.
+	ErrInvalidKeyID = errors.New("invalid key ID format")
 )
 
 // encodeTokenField encodes a token type and key ID into a single Field string.
@@ -134,7 +139,73 @@ func (s *Service) handleSelectTokenTypeResult(ctx context.Context, userID string
 		return s.askToRegenerateToken(ctx, userID, tokenType)
 	}
 
-	return s.askForTokenExpiration(ctx, userID, StateNewToken, tokenType)
+	return s.askForKeyID(ctx, userID, tokenType)
+}
+
+// askForKeyID starts a conversation asking the user to enter a custom key ID or skip to auto-generate.
+// The token type is encoded in the question Field for use by handleEnterKeyIDResult.
+func (s *Service) askForKeyID(ctx context.Context, userID string, tokenType TokenType) (*Response, error) {
+	return s.askForKeyIDWithPrompt(ctx, userID, tokenType,
+		"Enter a custom key ID for your token, or send \"Skip\" to generate one automatically.")
+}
+
+// askForKeyIDWithError re-enters the key ID step with an error message prepended to the prompt.
+// Used when the API rejects the previously entered key ID (409 Conflict or 400 Bad Request).
+func (s *Service) askForKeyIDWithError(ctx context.Context, userID string, tokenType TokenType, errMsg string) (*Response, error) {
+	prompt := errMsg + "\n\nEnter a different key ID, or send \"Skip\" to generate one automatically."
+	return s.askForKeyIDWithPrompt(ctx, userID, tokenType, prompt)
+}
+
+// askForKeyIDWithPrompt is the shared implementation for askForKeyID and askForKeyIDWithError.
+func (s *Service) askForKeyIDWithPrompt(ctx context.Context, userID string, tokenType TokenType, prompt string) (*Response, error) {
+	c, err := s.repo.GetConversation(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get conversation: %w", err)
+	}
+
+	// Answers is nil: free-text mode — any input including "Skip" is accepted.
+	questions := conv.NewQuestions(
+		[]conv.Question{{
+			Text:  prompt,
+			Field: string(tokenType),
+		}},
+	)
+
+	if err := c.Start(StateEnterKeyID, questions); err != nil {
+		return nil, fmt.Errorf("failed to start questions: %w", err)
+	}
+
+	q, _ := c.Current()
+
+	if err := s.repo.SaveConversation(ctx, c); err != nil {
+		return nil, fmt.Errorf("failed to save conversation: %w", err)
+	}
+
+	return &Response{
+		Message: q.Text,
+		Answers: q.Answers,
+	}, nil
+}
+
+// handleEnterKeyIDResult processes the key ID entered by the user.
+// "Skip" maps to an empty key ID (auto-generate); any other text is used as the explicit key ID.
+// The token type is extracted from the answer's Field (set by askForKeyID).
+func (s *Service) handleEnterKeyIDResult(ctx context.Context, userID string, answers []conv.QuestionAnswer) (*Response, error) {
+	if len(answers) != 1 {
+		return nil, fmt.Errorf("expected exactly one answer for enterKeyID question, got %d", len(answers))
+	}
+
+	tokenType := TokenType(answers[0].Field)
+	if tokenType == "" {
+		tokenType = TokenTypeWeb // backward compat
+	}
+
+	keyID := answers[0].Answer
+	if keyID == "Skip" {
+		keyID = ""
+	}
+
+	return s.askForTokenExpirationWithKeyID(ctx, userID, StateNewToken, tokenType, keyID)
 }
 
 // askToRegenerateToken starts a conversation asking the user whether they want to regenerate
@@ -328,11 +399,20 @@ func (s *Service) handleNewTokenResult(ctx context.Context, userID string, answe
 		return nil, fmt.Errorf("expected at least one answer, got none")
 	}
 
-	tokenType, _ := decodeTokenField(answers[0].Field)
+	tokenType, keyID := decodeTokenField(answers[0].Field)
 
-	token, err := s.prov.GenerateToken("", tokenType, expiresIn)
+	token, err := s.prov.GenerateToken(keyID, tokenType, expiresIn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate token: %w", err)
+		switch {
+		case errors.Is(err, ErrDuplicateKeyID):
+			return s.askForKeyIDWithError(ctx, userID, tokenType,
+				"That key ID is already taken. Please enter a different one.")
+		case errors.Is(err, ErrInvalidKeyID):
+			return s.askForKeyIDWithError(ctx, userID, tokenType,
+				"That key ID format is invalid. Please enter a different one.")
+		default:
+			return nil, fmt.Errorf("failed to generate token: %w", err)
+		}
 	}
 
 	if err = s.repo.AddAPIKey(ctx, userID, token.KeyID, tokenType, token.ExpiresIn); err != nil {
@@ -391,11 +471,6 @@ func (s *Service) handleTokenRegenerateResult(ctx context.Context, userID string
 	return &Response{
 		Message: fmt.Sprintf(tokenCreatedMessage, token.Token, expiresAt),
 	}, nil
-}
-
-// askForTokenExpiration starts a conversation asking for token expiration for a new (non-regenerate) token.
-func (s *Service) askForTokenExpiration(ctx context.Context, userID string, state conv.State, tokenType TokenType) (*Response, error) {
-	return s.askForTokenExpirationWithKeyID(ctx, userID, state, tokenType, "")
 }
 
 // parseExpirationAnswer converts the user's textual expiration answer to a seconds value.

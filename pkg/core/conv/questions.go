@@ -43,6 +43,14 @@ func (f *Questions) ProcessAnswer(answer string) (bool, error) {
 
 	answers := f.QAPairs[f.Position].Question.Answers
 
+	// Free-text mode: when no answer whitelist is defined, accept any input.
+	if len(answers) == 0 {
+		f.QAPairs[f.Position].Answer = answer
+		f.QAPairs[f.Position].Field = f.QAPairs[f.Position].Question.Field
+		f.Position++
+		return f.Position >= len(f.QAPairs), nil
+	}
+
 	for _, a := range answers {
 		if a == answer {
 			f.QAPairs[f.Position].Answer = answer

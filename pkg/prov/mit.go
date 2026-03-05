@@ -68,7 +68,15 @@ func (m *MIT) GenerateToken(keyID string, tokenType core.TokenType, ttl int64) (
 	}
 
 	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusCreated {
+
+	switch resp.StatusCode {
+	case http.StatusCreated:
+		// success, decode response below
+	case http.StatusConflict:
+		return nil, core.ErrDuplicateKeyID
+	case http.StatusBadRequest:
+		return nil, core.ErrInvalidKeyID
+	default:
 		return nil, fmt.Errorf("failed to generate token, status code: %d", resp.StatusCode)
 	}
 
