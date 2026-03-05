@@ -100,6 +100,8 @@ func (s *Service) HandleMessage(ctx context.Context, userID string, message stri
 		return s.handleSelectTokenTypeResult(ctx, userID, res)
 	case StateTokenExists:
 		return s.handleTokenExistsResult(ctx, userID, res)
+	case StateEnterKeyID:
+		return s.handleEnterKeyIDResult(ctx, userID, res)
 	case StateNewToken:
 		return s.handleNewTokenResult(ctx, userID, res)
 	case StateTokenRegenerate:

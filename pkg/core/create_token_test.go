@@ -90,19 +90,19 @@ func TestHandleSelectTokenTypeResult(t *testing.T) {
 		expectSaveConv  bool
 	}{
 		{
-			name:            "web under limit - asks for expiration",
+			name:            "web under limit - asks for key ID",
 			answer:          "Web",
 			existingKeys:    []KeyInfo{},
-			expectedMsg:     "What is the expiration period for your new API token?",
-			expectedAnswers: []string{"1 day", "7 days", "30 days", "90 days"},
+			expectedMsg:     "Enter a custom key ID for your token, or send \"Skip\" to generate one automatically.",
+			expectedAnswers: nil,
 			expectSaveConv:  true,
 		},
 		{
-			name:            "TCP under limit - asks for expiration",
+			name:            "TCP under limit - asks for key ID",
 			answer:          "TCP",
 			existingKeys:    []KeyInfo{},
-			expectedMsg:     "What is the expiration period for your new API token?",
-			expectedAnswers: []string{"1 day", "7 days", "30 days", "90 days"},
+			expectedMsg:     "Enter a custom key ID for your token, or send \"Skip\" to generate one automatically.",
+			expectedAnswers: nil,
 			expectSaveConv:  true,
 		},
 		{
@@ -545,5 +545,168 @@ func TestResolveKeyIDFromPrefix(t *testing.T) {
 	t.Run("short button text", func(t *testing.T) {
 		_, err := resolveKeyIDFromPrefix(keys, "short")
 		require.Error(t, err)
+	})
+}
+
+func TestHandleEnterKeyIDResult(t *testing.T) {
+	userID := "user123"
+
+	tests := []struct {
+		saveConvErr     error
+		name            string
+		expectedMsg     string
+		expectedErr     string
+		answers         []conv.QuestionAnswer
+		expectedAnswers []string
+	}{
+		{
+			name: "custom key ID - proceeds to expiration",
+			answers: []conv.QuestionAnswer{
+				{Answer: "my-homelab-web", Field: string(TokenTypeWeb)},
+			},
+			expectedMsg:     "What is the expiration period for your new API token?",
+			expectedAnswers: []string{"1 day", "7 days", "30 days", "90 days"},
+		},
+		{
+			name: "Skip - proceeds to expiration with empty key ID",
+			answers: []conv.QuestionAnswer{
+				{Answer: "Skip", Field: string(TokenTypeWeb)},
+			},
+			expectedMsg:     "What is the expiration period for your new API token?",
+			expectedAnswers: []string{"1 day", "7 days", "30 days", "90 days"},
+		},
+		{
+			name: "TCP token type preserved",
+			answers: []conv.QuestionAnswer{
+				{Answer: "my-tcp-key", Field: string(TokenTypeTCP)},
+			},
+			expectedMsg:     "What is the expiration period for your new API token?",
+			expectedAnswers: []string{"1 day", "7 days", "30 days", "90 days"},
+		},
+		{
+			name:        "wrong number of answers",
+			answers:     []conv.QuestionAnswer{},
+			expectedErr: "expected exactly one answer for enterKeyID question, got 0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := NewMockUserRepo(t)
+			prov := NewMockMITProv(t)
+
+			if tt.expectedErr == "" {
+				repo.On("GetConversation", mock.Anything, userID).Return(conv.New(userID), nil)
+				repo.On("SaveConversation", mock.Anything, mock.MatchedBy(func(c *conv.Conversation) bool {
+					return c.State == StateNewToken
+				})).Return(tt.saveConvErr)
+			}
+
+			svc := New(repo, prov)
+
+			resp, err := svc.handleEnterKeyIDResult(context.Background(), userID, tt.answers)
+
+			if tt.expectedErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedErr)
+				assert.Nil(t, resp)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+				assert.Equal(t, tt.expectedMsg, resp.Message)
+				if tt.expectedAnswers != nil {
+					assert.Equal(t, tt.expectedAnswers, resp.Answers)
+				}
+			}
+
+			repo.AssertExpectations(t)
+			prov.AssertExpectations(t)
+		})
+	}
+}
+
+func TestHandleNewTokenResult_CustomKeyID(t *testing.T) {
+	userID := "user123"
+	keyID := "my-homelab-web"
+
+	t.Run("custom key ID happy path", func(t *testing.T) {
+		repo := NewMockUserRepo(t)
+		mockProv := NewMockMITProv(t)
+
+		token := &APIToken{
+			KeyID:     keyID,
+			Token:     "token-abc",
+			ExpiresIn: 7 * 24 * time.Hour,
+		}
+
+		mockProv.On("GenerateToken", keyID, TokenTypeWeb, mock.AnythingOfType("int64")).Return(token, nil)
+		repo.On("AddAPIKey", mock.Anything, userID, keyID, TokenTypeWeb, token.ExpiresIn).Return(nil)
+
+		svc := New(repo, mockProv)
+
+		answers := []conv.QuestionAnswer{
+			{Answer: "7 days", Field: encodeTokenField(TokenTypeWeb, keyID)},
+		}
+
+		resp, err := svc.handleNewTokenResult(context.Background(), userID, answers)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Contains(t, resp.Message, "Your New API Token")
+
+		repo.AssertExpectations(t)
+		mockProv.AssertExpectations(t)
+	})
+
+	t.Run("duplicate key ID - re-asks for key ID", func(t *testing.T) {
+		repo := NewMockUserRepo(t)
+		mockProv := NewMockMITProv(t)
+
+		mockProv.On("GenerateToken", keyID, TokenTypeWeb, mock.AnythingOfType("int64")).Return(nil, ErrDuplicateKeyID)
+		repo.On("GetConversation", mock.Anything, userID).Return(conv.New(userID), nil)
+		repo.On("SaveConversation", mock.Anything, mock.MatchedBy(func(c *conv.Conversation) bool {
+			return c.State == StateEnterKeyID
+		})).Return(nil)
+
+		svc := New(repo, mockProv)
+
+		answers := []conv.QuestionAnswer{
+			{Answer: "7 days", Field: encodeTokenField(TokenTypeWeb, keyID)},
+		}
+
+		resp, err := svc.handleNewTokenResult(context.Background(), userID, answers)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Contains(t, resp.Message, "already taken")
+
+		repo.AssertExpectations(t)
+		mockProv.AssertExpectations(t)
+	})
+
+	t.Run("invalid key ID format - re-asks for key ID", func(t *testing.T) {
+		repo := NewMockUserRepo(t)
+		mockProv := NewMockMITProv(t)
+
+		mockProv.On("GenerateToken", keyID, TokenTypeWeb, mock.AnythingOfType("int64")).Return(nil, ErrInvalidKeyID)
+		repo.On("GetConversation", mock.Anything, userID).Return(conv.New(userID), nil)
+		repo.On("SaveConversation", mock.Anything, mock.MatchedBy(func(c *conv.Conversation) bool {
+			return c.State == StateEnterKeyID
+		})).Return(nil)
+
+		svc := New(repo, mockProv)
+
+		answers := []conv.QuestionAnswer{
+			{Answer: "7 days", Field: encodeTokenField(TokenTypeWeb, keyID)},
+		}
+
+		resp, err := svc.handleNewTokenResult(context.Background(), userID, answers)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		assert.Contains(t, resp.Message, "format is invalid")
+
+		repo.AssertExpectations(t)
+		mockProv.AssertExpectations(t)
 	})
 }

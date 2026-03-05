@@ -28,12 +28,13 @@ func TestNew(t *testing.T) {
 
 func TestGenerateToken(t *testing.T) {
 	tests := []struct {
-		serverResponse func(w http.ResponseWriter, r *http.Request)
-		expectedToken  *core.APIToken
-		name           string
-		tokenType      core.TokenType
-		expectedError  string
-		defaultTTL     int64
+		serverResponse   func(w http.ResponseWriter, r *http.Request)
+		expectedToken    *core.APIToken
+		expectedSentinel error
+		name             string
+		tokenType        core.TokenType
+		expectedError    string
+		defaultTTL       int64
 	}{
 		{
 			name:       "success web token",
@@ -111,6 +112,22 @@ func TestGenerateToken(t *testing.T) {
 			},
 			expectedError: "failed to decode response",
 		},
+		{
+			name:      "duplicate key ID",
+			tokenType: core.TokenTypeWeb,
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusConflict)
+			},
+			expectedSentinel: core.ErrDuplicateKeyID,
+		},
+		{
+			name:      "invalid key ID format",
+			tokenType: core.TokenTypeWeb,
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusBadRequest)
+			},
+			expectedSentinel: core.ErrInvalidKeyID,
+		},
 	}
 
 	for _, tt := range tests {
@@ -126,7 +143,11 @@ func TestGenerateToken(t *testing.T) {
 
 			token, err := mit.GenerateToken("", tt.tokenType, tt.defaultTTL)
 
-			if tt.expectedError != "" {
+			if tt.expectedSentinel != nil {
+				require.Error(t, err)
+				assert.Nil(t, token)
+				assert.ErrorIs(t, err, tt.expectedSentinel)
+			} else if tt.expectedError != "" {
 				require.Error(t, err)
 				assert.Nil(t, token)
 				assert.Contains(t, err.Error(), tt.expectedError)
