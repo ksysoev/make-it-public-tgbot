@@ -3,34 +3,18 @@
 # Configuration files are embedded in Docker images (no volume mounts from host)
 
 services:
-  redis:
-    image: redis:7.4-alpine
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
-    networks:
-      - backend
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-
   mitbot:
     image: "ghcr.io/ksysoev/make-it-public-tgbot:${VERSION:-latest}"
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
       - MIT_URL=${MIT_URL}
       - MIT_DEFAULT_TTL=${MIT_DEFAULT_TTL:-604800}
-      - REPO_REDIS_ADDR=redis:6379
+      - REDIS_URL=${REDIS_URL}
       - "REPO_KEY_PREFIX=MITTGBOT::"
       - LOG_LEVEL=${LOG_LEVEL:-info}
     command: ["run"]
     networks:
-      - backend
       - mit-api
-    depends_on:
-      - redis
     deploy:
       replicas: 1
       restart_policy:
@@ -45,15 +29,7 @@ services:
         parallelism: 1
         delay: 5s
 
-volumes:
-  redis_data:
-
 networks:
-  # Internal backend network for telegram bot services
-  backend:
-    driver: overlay
-    name: ${NETWORK_NAME:-mitbot-network}
-  
   # External network to connect to make-it-public API
   # This network is shared with the make-it-public stack
   mit-api:

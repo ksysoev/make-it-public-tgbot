@@ -23,7 +23,11 @@ func runBot(ctx context.Context, arg *args) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	userRepo := repo.New(cfg.Repo)
+	userRepo, err := repo.New(cfg.Repo)
+	if err != nil {
+		return fmt.Errorf("failed to init repo: %w", err)
+	}
+
 	MITProv := prov.New(cfg.MIT)
 	tokeSvc := core.New(userRepo, MITProv)
 
