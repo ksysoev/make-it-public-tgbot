@@ -80,5 +80,6 @@ jobs:
       # Deployment secrets (sensitive environment variables)
       deployment_secrets: |
         {
-          "BOT_TOKEN": "${{ secrets.BOT_TOKEN }}"
+          "BOT_TOKEN": "${{ secrets.BOT_TOKEN }}",
+          "REDIS_URL": "${{ secrets.REDIS_URL }}"
         }

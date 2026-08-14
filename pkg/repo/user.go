@@ -50,6 +50,7 @@ func decodeKeyMember(member string) (keyID string, tokenType core.TokenType) {
 }
 
 type Config struct {
+	RedisURL  string `mapstructure:"redis_url"`
 	RedisAddr string `mapstructure:"redis_addr"`
 	Password  string `mapstructure:"redis_password"`
 	KeyPrefix string `mapstructure:"key_prefix"`
@@ -61,16 +62,30 @@ type User struct {
 }
 
 // New initializes and returns a new User instance configured with the provided Config.
-func New(cfg Config) *User {
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     cfg.RedisAddr,
-		Password: cfg.Password,
-	})
+// If RedisURL is set it takes precedence over RedisAddr/Password.
+func New(cfg Config) (*User, error) {
+	var opts *redis.Options
+
+	if cfg.RedisURL != "" {
+		var err error
+
+		opts, err = redis.ParseURL(cfg.RedisURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse REDIS_URL: %w", err)
+		}
+	} else {
+		opts = &redis.Options{
+			Addr:     cfg.RedisAddr,
+			Password: cfg.Password,
+		}
+	}
+
+	rdb := redis.NewClient(opts)
 
 	return &User{
 		db:        rdb,
 		keyPrefix: cfg.KeyPrefix,
-	}
+	}, nil
 }
 
 // Close terminates the connection to the Redis database and returns an error if the operation fails.

@@ -35,6 +35,9 @@ func loadConfig(arg *args) (*appConfig, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
+	// Allow REDIS_URL (common PaaS convention) to map to repo.redis_url.
+	_ = v.BindEnv("repo.redis_url", "REDIS_URL")
+
 	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}

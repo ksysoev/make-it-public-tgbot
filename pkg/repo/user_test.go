@@ -37,8 +37,9 @@ func TestNew(t *testing.T) {
 		KeyPrefix: "prefix:",
 	}
 
-	user := New(cfg)
+	user, err := New(cfg)
 
+	require.NoError(t, err)
 	assert.NotNil(t, user)
 	assert.Equal(t, cfg.KeyPrefix, user.keyPrefix)
 	assert.NotNil(t, user.db)
